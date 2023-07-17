@@ -31,7 +31,7 @@ void getDirectoryFileList(wchar_t *dir, wchar_t fileList[100][100] ) {
 
     wcscpy(szDir, dir);
     wcscat(szDir, L"\\*");
-    printf("[+] %S\n", szDir);
+    printf("%S\n", szDir);
     hFind = FindFirstFileW(szDir, &ffd);
     if (INVALID_HANDLE_VALUE == hFind) {
 
