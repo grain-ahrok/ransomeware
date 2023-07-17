@@ -47,7 +47,9 @@ void getDirectoryFileList(wchar_t *dir, wchar_t fileList[100][100] ) {
             filesize.HighPart = ffd.nFileSizeHigh;
             // printf("  %s   %ld bytes\n", ffd.cFileName, filesize.QuadPart);
         }
-        wcscpy(fileList[index], ffd.cFileName);
+        wcscat(fileList[index], dir);
+        wcscat(fileList[index], L"\\");
+        wcscat(fileList[index], ffd.cFileName);
         index ++;
         if(index > 100) {
             break;
