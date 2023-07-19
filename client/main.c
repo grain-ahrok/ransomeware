@@ -23,11 +23,6 @@ int main() {
     struct FILES files;
     files.doc_index, files.docx_index, files.jpg_index, files.png_index, files.txt_index = 0;
 
-
-    // TODO : wcscat -> wcscpy 로 변경 
-    // TODO : classify 에 경로 넣어주기
-
-
     //[1] Desktop
     wchar_t* dir = (wchar_t*)calloc(100, sizeof(wchar_t));
     wcscpy(dir, dirPrefix);
@@ -62,6 +57,12 @@ int main() {
         wprintf(L"\n doc fileList[%d] : %s \n", i, files.doc[i]);
     for(int i = 0; i < files.docx_index; i++) 
         wprintf(L"\n docx fileList[%d] : %s \n", i, files.docx[i]);
+    for(int i = 0; i < files.txt_index; i++) 
+        wprintf(L"\n docx fileList[%d] : %s \n", i, files.txt[i]);
+
+
+
+
 
 
     free(dir);

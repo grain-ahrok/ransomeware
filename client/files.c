@@ -103,11 +103,12 @@ void classifyFiles(struct FILES *files, wchar_t *dir, wchar_t fileList[100][100]
             wcscpy(files->docx[files->docx_index], fileList[i]);
             files->docx_index++;
 
-        } else if(buff_sign == ".txt"){
-            // TODO : txt 경우 수정
+        } else if(wcsstr(fileList[i], L".txt") != NULL){
+            wcscpy(files->txt[files->txt_index], fileList[i]);
+            files->txt_index++;
 
         } else {
-            wcscpy(files->png[files->png_index], fileList[i]);
+            
         }
     }
 }
