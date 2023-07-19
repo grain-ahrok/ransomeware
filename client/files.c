@@ -27,9 +27,9 @@ void getDirectoryFileList(wchar_t *dir, wchar_t fileList[100][100] ) {
     DWORD dwError = 0;
     int index = 0;
 
-    printf("================================================================================================= \n");
-    printf("                       Target directory is %S                         \n", dir);
-    printf("================================================================================================= \n\n");
+    // printf("================================================================================================= \n");
+    // printf("                       Target directory is %S                         \n", dir);
+    // printf("================================================================================================= \n\n");
 
     wcscpy(szDir, dir);
     wcscat(szDir, L"\\*");
@@ -72,15 +72,16 @@ void classifyFiles(struct FILES *files, wchar_t *dir, wchar_t fileList[100][100]
 
     char buff_sign[SIGN_BUFF_SIZE];
     DWORD readn;
+    HANDLE file1;
 
-    printf("================================================================================================= \n");
-    printf("                      Classify Files start  %S                         \n", dir);
-    printf("================================================================================================= \n\n");
+    // printf("================================================================================================= \n");
+    // printf("                      Classify Files start  %S                         \n", dir);
+    // printf("================================================================================================= \n\n");
 
     for (int i = 0; i < 100; i++) {
         if(fileList[i][0] == '\0') break;
         
-        HANDLE file1 = CreateFileW(fileList[i], GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        file1 = CreateFileW(fileList[i], GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
         if (file1 == INVALID_HANDLE_VALUE) {
             printf("file1 open error\n");
             return;
@@ -110,5 +111,6 @@ void classifyFiles(struct FILES *files, wchar_t *dir, wchar_t fileList[100][100]
         } else {
             
         }
+        CloseHandle(file1);
     }
 }
