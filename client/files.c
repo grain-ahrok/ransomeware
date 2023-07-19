@@ -68,7 +68,7 @@ void getDirectoryFileList(wchar_t *dir, wchar_t fileList[100][100] ) {
 
 
 
-void classifyFiles(struct FILES *files, wchar_t *dir, wchar_t fileList[100][100]) {
+void classifyFiles(struct FILES *files, wchar_t fileList[100][100]) {
 
     char buff_sign[SIGN_BUFF_SIZE];
     DWORD readn;

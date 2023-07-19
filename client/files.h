@@ -38,4 +38,4 @@ wchar_t *getUserName();
 
 void getDirectoryFileList(wchar_t *dirName, wchar_t fileList[100][100] );
 
-void classifyFiles(struct FILES *files, wchar_t *dir, wchar_t fileList[100][100]);
+void classifyFiles(struct FILES *files, wchar_t fileList[100][100]);

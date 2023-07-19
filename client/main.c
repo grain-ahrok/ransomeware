@@ -44,25 +44,25 @@ int main() {
     wcscpy(dir, dirPrefix);
     wcscat(dir, DESKTOP_DIR);
     getDirectoryFileList(dir, fileDir.desktop);
-    classifyFiles(&files, dir, fileDir.desktop);
+    classifyFiles(&files, fileDir.desktop);
 
     //[2] Downloads
     wcscpy(dir, dirPrefix);
     wcscat(dir, DOWNLOADS_DIR);
     getDirectoryFileList(dir, fileDir.downloads);
-    classifyFiles(&files, dir, fileDir.downloads);
+    classifyFiles(&files, fileDir.downloads);
 
     // [3]  Documents
     wcscpy(dir, dirPrefix);
     wcscat(dir, DOCUMENTS_DIR);
     getDirectoryFileList(dir, fileDir.documents);
-    classifyFiles(&files, dir, fileDir.documents);
+    classifyFiles(&files, fileDir.documents);
 
     // [4]  AppData/Local/Temp
     wcscpy(dir, dirPrefix);
     wcscat(dir, APPDATA_DIR);
     getDirectoryFileList(dir, fileDir.appData);
-    classifyFiles(&files, dir, fileDir.appData);
+    classifyFiles(&files, fileDir.appData);
 
     free(dir);
     free(dirPrefix);
