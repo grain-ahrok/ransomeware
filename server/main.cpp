@@ -8,6 +8,11 @@
 #include <fstream>
 #include <arpa/inet.h>
 #include <ctime>
+#include <openssl/ec.h>
+#include <openssl/rsa.h>
+#include <openssl/pem.h>
+
+//g++ -std=c++14 -Wall main.cpp -o main -lssl -lcrypto
 
 // 로그 파일 경로
 const std::string LOG_FILE = "server_log.txt";
@@ -35,6 +40,52 @@ void saveKeyToFile(const std::string& clientIP, const std::string& key) {
     }
 }
 
+bool generateAndSaveRSAKeys(const std::string& publicKeyFile, const std::string& privateKeyFile) {
+    // RSA 키 쌍 생성
+    RSA *rsa = RSA_new();
+    BIGNUM *bne = BN_new();
+    BN_set_word(bne, RSA_F4);
+    RSA_generate_key_ex(rsa, 2048, bne, NULL);
+
+    // 개인키를 파일에 저장
+    FILE* privateKeyFilePtr = fopen(privateKeyFile.c_str(), "w");
+    if (!privateKeyFilePtr) {
+        std::cerr << "Failed to create private key file!" << std::endl;
+        RSA_free(rsa);
+        BN_free(bne);
+        return false;
+    }
+    if (!PEM_write_RSAPrivateKey(privateKeyFilePtr, rsa, NULL, NULL, 0, NULL, NULL)) {
+        std::cerr << "Failed to write private key to file!" << std::endl;
+        RSA_free(rsa);
+        BN_free(bne);
+        fclose(privateKeyFilePtr);
+        return false;
+    }
+    fclose(privateKeyFilePtr);
+
+    // 공개키를 파일에 저장
+    FILE* publicKeyFilePtr = fopen(publicKeyFile.c_str(), "w");
+    if (!publicKeyFilePtr) {
+        std::cerr << "Failed to create public key file!" << std::endl;
+        RSA_free(rsa);
+        BN_free(bne);
+        return false;
+    }
+    if (!PEM_write_RSA_PUBKEY(publicKeyFilePtr, rsa)) {
+        std::cerr << "Failed to write public key to file!" << std::endl;
+        RSA_free(rsa);
+        BN_free(bne);
+        fclose(publicKeyFilePtr);
+        return false;
+    }
+    fclose(publicKeyFilePtr);
+
+    RSA_free(rsa);
+    BN_free(bne);
+    return true;
+}
+
 void handleClient(int clientSocket) {
     char buf[4096];
     sockaddr_in clientAddr;
@@ -54,6 +105,26 @@ void handleClient(int clientSocket) {
     // 연결 시간과 클라이언트 IP 주소를 로그에 기록
     std::string logMessage = "Connected: " + std::string(currentTime) + " - Client IP: " + std::string(clientIP);
     writeToLog(logMessage);
+
+    // RSA 공개키와 개인키 파일 경로
+    const std::string publicKeyFile = "public_key_" + std::string(clientIP) + ".pem";
+    const std::string privateKeyFile = "private_key_" + std::string(clientIP) + ".pem";
+
+    // RSA 키 생성 및 파일로 저장
+    if (!generateAndSaveRSAKeys(publicKeyFile, privateKeyFile)) {
+        std::cerr << "Failed to generate and save RSA keys!" << std::endl;
+        close(clientSocket);
+        return;
+    }
+
+    // 클라이언트에게 공개키 전송
+    std::ifstream publicKeyFileInputStream(publicKeyFile, std::ios::binary);
+    std::string publicKey((std::istreambuf_iterator<char>(publicKeyFileInputStream)),
+                           std::istreambuf_iterator<char>());
+    publicKeyFileInputStream.close();
+
+    send(clientSocket, publicKey.c_str(), publicKey.size(), 0);
+    
 
     while (true) {
         ssize_t bytesReceived = recv(clientSocket, buf, 4096, 0);
@@ -77,6 +148,9 @@ void handleClient(int clientSocket) {
         std::string receivedMessage = std::string(buf, 0, bytesReceived);
         std::cout << "Received: " << receivedMessage << std::endl;
 
+        // 로그 파일에 클라이언트 IP 주소와 메시지 기록
+        writeToLog(receivedMessage);
+
         // 클라이언트로부터 받은 키를 파일에 저장
         saveKeyToFile(clientIP, receivedMessage);
 
@@ -84,6 +158,7 @@ void handleClient(int clientSocket) {
     }
     close(clientSocket);
 }
+
 
 int main() {
     // 소켓 생성

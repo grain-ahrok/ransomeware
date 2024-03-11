@@ -1,1 +1,6 @@
+.vscode
 *.exe
+*/key.txt
+*/server_log.txt
+*/main
+*.pem
