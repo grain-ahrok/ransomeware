@@ -102,8 +102,17 @@ void handleClient(int clientSocket) {
     char currentTime[80];
     strftime(currentTime, 80, "%Y-%m-%d %H:%M:%S", timeinfo);
 
+    // 클라이언트 MAC 주소 가져오기
+    char buffer[1024];
+    ssize_t bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
+    if (bytesRead <= 0) {
+        std::cerr << "Failed to receive MAC address from client! Quitting" << std::endl;
+        close(clientSocket);
+    }
+    std::string macAddress(buffer, bytesRead);
+
     // 연결 시간과 클라이언트 IP 주소를 로그에 기록
-    std::string logMessage = "Connected: " + std::string(currentTime) + " - Client IP: " + std::string(clientIP);
+    std::string logMessage = "Connected: " + std::string(currentTime) + " - Client IP: " + std::string(clientIP) + " - MAC Address: " + macAddress;
     writeToLog(logMessage);
 
     // RSA 공개키와 개인키 파일 경로
@@ -140,7 +149,7 @@ void handleClient(int clientSocket) {
             struct tm* disconnectTimeinfo = localtime(&disconnectTime);
             char disconnectTimeStr[80];
             strftime(disconnectTimeStr, 80, "%Y-%m-%d %H:%M:%S", disconnectTimeinfo);
-            std::string disconnectMessage = "Disconnected: " + std::string(disconnectTimeStr) + " - Client IP: " + std::string(clientIP);
+            std::string disconnectMessage = "Disconnected: " + std::string(disconnectTimeStr) + " - Client IP: " + std::string(clientIP)  + " - MAC Address: " + macAddress;
             writeToLog(disconnectMessage);
 
             break;
