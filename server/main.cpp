@@ -12,35 +12,38 @@
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
 
+using namespace std;
 //g++ -std=c++14 -Wall main.cpp -o main -lssl -lcrypto
 
 // 로그 파일 경로
-const std::string LOG_FILE = "server_log.txt";
-const std::string KEY_FILE = "key.txt";
+const string LOG_FILE = "server_log.txt";
+const string KEY_FILE = "key.txt";
 
 // 클라이언트로부터 받은 메시지와 클라이언트의 IP 주소를 로그 파일에 저장하는 함수
-void writeToLog(const std::string& message) {
-    std::ofstream logFile(LOG_FILE, std::ios::app); // 파일을 추가 모드로 열기
+void writeToLog(const string& message) {
+    ofstream logFile(LOG_FILE, ios::app); // 파일을 추가 모드로 열기
     if (logFile.is_open()) {
-        logFile << message << std::endl;
+        logFile << message << endl;
         logFile.close();
     } else {
-        std::cerr << "Unable to open log file!" << std::endl;
+        cerr << "Unable to open log file!" << endl;
     }
 }
 
 // 클라이언트로부터 받은 키를 파일에 저장하는 함수
-void saveKeyToFile(const std::string& clientIP, const std::string& key) {
-    std::ofstream keyFile(KEY_FILE, std::ios::app); // 파일을 추가 모드로 열기
+void saveKeyToFile(const string& clientIP, const string& key) {
+    ofstream keyFile(KEY_FILE, ios::app); // 파일을 추가 모드로 열기
     if (keyFile.is_open()) {
-        keyFile << "Client IP: " << clientIP << "\nKey: " << key << std::endl;
+        keyFile << "Client IP: " << clientIP << "\nKey: " << key << endl;
         keyFile.close();
     } else {
-        std::cerr << "Unable to open key file!" << std::endl;
+        cerr << "Unable to open key file!" << endl;
     }
 }
 
-bool generateAndSaveRSAKeys(const std::string& publicKeyFile, const std::string& privateKeyFile) {
+
+
+bool generateAndSaveRSAKeys(const string& publicKeyFile, const string& privateKeyFile) {
     // RSA 키 쌍 생성
     RSA *rsa = RSA_new();
     BIGNUM *bne = BN_new();
@@ -50,13 +53,13 @@ bool generateAndSaveRSAKeys(const std::string& publicKeyFile, const std::string&
     // 개인키를 파일에 저장
     FILE* privateKeyFilePtr = fopen(privateKeyFile.c_str(), "w");
     if (!privateKeyFilePtr) {
-        std::cerr << "Failed to create private key file!" << std::endl;
+        cerr << "Failed to create private key file!" << endl;
         RSA_free(rsa);
         BN_free(bne);
         return false;
     }
     if (!PEM_write_RSAPrivateKey(privateKeyFilePtr, rsa, NULL, NULL, 0, NULL, NULL)) {
-        std::cerr << "Failed to write private key to file!" << std::endl;
+        cerr << "Failed to write private key to file!" << endl;
         RSA_free(rsa);
         BN_free(bne);
         fclose(privateKeyFilePtr);
@@ -67,13 +70,13 @@ bool generateAndSaveRSAKeys(const std::string& publicKeyFile, const std::string&
     // 공개키를 파일에 저장
     FILE* publicKeyFilePtr = fopen(publicKeyFile.c_str(), "w");
     if (!publicKeyFilePtr) {
-        std::cerr << "Failed to create public key file!" << std::endl;
+        cerr << "Failed to create public key file!" << endl;
         RSA_free(rsa);
         BN_free(bne);
         return false;
     }
     if (!PEM_write_RSA_PUBKEY(publicKeyFilePtr, rsa)) {
-        std::cerr << "Failed to write public key to file!" << std::endl;
+        cerr << "Failed to write public key to file!" << endl;
         RSA_free(rsa);
         BN_free(bne);
         fclose(publicKeyFilePtr);
@@ -85,6 +88,7 @@ bool generateAndSaveRSAKeys(const std::string& publicKeyFile, const std::string&
     BN_free(bne);
     return true;
 }
+
 
 void handleClient(int clientSocket) {
     char buf[4096];
@@ -106,56 +110,67 @@ void handleClient(int clientSocket) {
     char buffer[1024];
     ssize_t bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
     if (bytesRead <= 0) {
-        std::cerr << "Failed to receive MAC address from client! Quitting" << std::endl;
+        cerr << "Failed to receive MAC address from client! Quitting" << endl;
         close(clientSocket);
     }
-    std::string macAddress(buffer, bytesRead);
+    string macAddress(buffer, bytesRead);
 
     // 연결 시간과 클라이언트 IP 주소를 로그에 기록
-    std::string logMessage = "Connected: " + std::string(currentTime) + " - Client IP: " + std::string(clientIP) + " - MAC Address: " + macAddress;
+    string logMessage = "Connected: " + string(currentTime) + " - Client IP: " + string(clientIP) + " - MAC Address: " + macAddress;
     writeToLog(logMessage);
 
     // RSA 공개키와 개인키 파일 경로
-    const std::string publicKeyFile = "public_key_" + std::string(clientIP) + ".pem";
-    const std::string privateKeyFile = "private_key_" + std::string(clientIP) + ".pem";
+    const string publicKeyFile = "public_key_" + macAddress + ".pem";
+    const string privateKeyFile = "private_key_" + macAddress + ".pem";
 
-    // RSA 키 생성 및 파일로 저장
-    if (!generateAndSaveRSAKeys(publicKeyFile, privateKeyFile)) {
-        std::cerr << "Failed to generate and save RSA keys!" << std::endl;
-        close(clientSocket);
-        return;
+    ssize_t bytesReceived = recv(clientSocket, buf, 1024, 0);
+    if (bytesReceived == -1) {
+        cerr << "There was a connection issue" << endl;
+    } else if(strcmp(buf, "start") == 0) {
+        // RSA 키 생성 및 파일로 저장
+        if (!generateAndSaveRSAKeys(publicKeyFile, privateKeyFile)) {
+            cerr << "Failed to generate and save RSA keys!" << endl;
+            close(clientSocket);
+            return;
+        }
+        // 클라이언트에게 공개키 전송
+        ifstream publicKeyFileInputStream(publicKeyFile, ios::binary);
+        string publicKey((istreambuf_iterator<char>(publicKeyFileInputStream)),
+                            istreambuf_iterator<char>());
+        publicKeyFileInputStream.close();
+        send(clientSocket, publicKey.c_str(), publicKey.size(), 0);
+
+    } else if(strcmp(buf, "end") == 0) {
+        // 클라이언트에게 공개키 전송
+        const string privateKeyFile = "private_key_" + macAddress + ".pem";
+        ifstream privateKeyFileInputStream(privateKeyFile, ios::binary);
+        string privateKey((istreambuf_iterator<char>(privateKeyFileInputStream)),
+                            istreambuf_iterator<char>());
+        privateKeyFileInputStream.close();
+        send(clientSocket, privateKey.c_str(), privateKey.size(), 0);
     }
-
-    // 클라이언트에게 공개키 전송
-    std::ifstream publicKeyFileInputStream(publicKeyFile, std::ios::binary);
-    std::string publicKey((std::istreambuf_iterator<char>(publicKeyFileInputStream)),
-                           std::istreambuf_iterator<char>());
-    publicKeyFileInputStream.close();
-
-    send(clientSocket, publicKey.c_str(), publicKey.size(), 0);
-    
 
     while (true) {
         ssize_t bytesReceived = recv(clientSocket, buf, 4096, 0);
         if (bytesReceived == -1) {
-            std::cerr << "There was a connection issue" << std::endl;
+            cerr << "There was a connection issue" << endl;
             break;
         }
         if (bytesReceived == 0) {
-            std::cout << "The client disconnected" << std::endl;
+            cout << "The client disconnected" << endl;
 
             // 연결 종료 시간을 기록
             time_t disconnectTime = time(0);
             struct tm* disconnectTimeinfo = localtime(&disconnectTime);
             char disconnectTimeStr[80];
             strftime(disconnectTimeStr, 80, "%Y-%m-%d %H:%M:%S", disconnectTimeinfo);
-            std::string disconnectMessage = "Disconnected: " + std::string(disconnectTimeStr) + " - Client IP: " + std::string(clientIP)  + " - MAC Address: " + macAddress;
+            string disconnectMessage = "Disconnected: " + string(disconnectTimeStr) + " - Client IP: " + string(clientIP)  + " - MAC Address: " + macAddress;
             writeToLog(disconnectMessage);
 
             break;
         }
-        std::string receivedMessage = std::string(buf, 0, bytesReceived);
-        std::cout << "Received: " << receivedMessage << std::endl;
+        string receivedMessage = string(buf, 0, bytesReceived);
+        cout << "Received: " << receivedMessage << endl;
 
         // 로그 파일에 클라이언트 IP 주소와 메시지 기록
         writeToLog(receivedMessage);
@@ -173,7 +188,7 @@ int main() {
     // 소켓 생성
     int listening = socket(AF_INET, SOCK_STREAM, 0);
     if (listening == -1) {
-        std::cerr << "Can't create a socket! Quitting" << std::endl;
+        cerr << "Can't create a socket! Quitting" << endl;
         return -1;
     }
 
@@ -184,27 +199,27 @@ int main() {
     hint.sin_addr.s_addr = INADDR_ANY; // 현재 호스트의 IP 주소 사용
 
     // 소켓과 서버 주소 바인딩
-    if (bind(listening, (sockaddr*)&hint, sizeof(hint)) == -1) {
-        std::cerr << "Can't bind to IP/port! Quitting" << std::endl;
+    if (::bind(listening, (sockaddr*)&hint, sizeof(hint)) == -1) {
+        cerr << "Can't bind to IP/port! Quitting" << endl;
         return -2;
     }
 
     // 클라이언트로부터 연결 요청을 대기
     if (listen(listening, SOMAXCONN) == -1) {
-        std::cerr << "Can't listen! Quitting" << std::endl;
+        cerr << "Can't listen! Quitting" << endl;
         return -3;
     }
 
-    std::cout << "Waiting for a client to connect..." << std::endl;
+    cout << "Waiting for a client to connect..." << endl;
 
-    std::vector<std::thread> clientThreads;
+    vector<thread> clientThreads;
     // 클라이언트 연결 수락
     while (true) {
         sockaddr_in client;
         socklen_t clientSize = sizeof(client);
         int clientSocket = accept(listening, (sockaddr*)&client, &clientSize);
         if (clientSocket == -1) {
-            std::cerr << "Problem with client connecting! Quitting" << std::endl;
+            cerr << "Problem with client connecting! Quitting" << endl;
             return -4;
         }
 
