@@ -27,9 +27,24 @@
     <ClInclude Include="client.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="AES.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="fileEnc.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="client.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="AES.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="fileEnc.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="network.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
