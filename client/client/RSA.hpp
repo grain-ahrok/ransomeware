@@ -2,5 +2,9 @@
 #include <iostream>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
+#include <openssl/rsa.h>
 
-int GetPublicKey();
+using namespace std;
+
+RSA* getPubKey();
+RSA* getPriKey();

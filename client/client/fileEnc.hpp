@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include <openssl/rsa.h>
+#include <openssl/pem.h>
+#include <openssl/ec.h>
 #include "AES.hpp"
 
 #define UNLEN 128

@@ -11,6 +11,7 @@
 #include <openssl/pem.h>
 #include "framework.h"
 #include "client.h"
+#include "rsa.hpp"
 #include "fileEnc.hpp"
 
 using namespace std;
@@ -21,11 +22,9 @@ using namespace std;
 #pragma comment(lib, "libssl.lib")
 #pragma comment(lib, "libcrypto.lib")
 
-
 #define DEFAULT_PORT "8080"
 string userName;
-RSA* getPubKey();
-RSA* getPriKey();
+
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
@@ -39,47 +38,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     RSA* pubKey = getPubKey();
     EncryptDir(pubKey, filename);
     RSA_free(pubKey);
+    
 
     RSA* priKey = getPriKey();
     DecryptDir(priKey, filename);
     RSA_free(priKey);
     return 0;
-}
-
-RSA* getPubKey() {
-    const char* publicKeyPath = "./public_key.der";
-
-    // 공개 키를 DER 형식으로 읽어옴
-    FILE* publicKeyFile = fopen(publicKeyPath, "rb");
-    if (!publicKeyFile) {
-        std::cerr << "Error opening public key file." << std::endl;
-    }
-
-    RSA* rsaPublicKey = d2i_RSAPublicKey_fp(publicKeyFile, NULL);
-    fclose(publicKeyFile);
-    if (!rsaPublicKey) {
-        std::cerr << "Error loading public key." << std::endl;
-    }
-   
-    return rsaPublicKey;
-}
-
-RSA* getPriKey() {
-    const char* privateKeyPath = "./private_key.der";
-
-    // 공개 키를 DER 형식으로 읽어옴
-    FILE* privateKeyFile = fopen(privateKeyPath, "rb");
-    if (!privateKeyFile) {
-        std::cerr << "Error opening private key file." << std::endl;
-    }
-
-    RSA* rsaPrivateKey = d2i_RSAPrivateKey_fp(privateKeyFile, NULL);
-    fclose(privateKeyFile);
-    if (!rsaPrivateKey) {
-        std::cerr << "Error loading private key." << std::endl;
-    }
-
-    return rsaPrivateKey;
 }
 
 

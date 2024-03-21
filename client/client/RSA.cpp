@@ -1,3 +1,44 @@
+#include "RSA.hpp"
+
+
+RSA* getPubKey() {
+    const char* publicKeyPath = "./public_key.der";
+
+    // 공개 키를 DER 형식으로 읽어옴
+    FILE* publicKeyFile = fopen(publicKeyPath, "rb");
+    if (!publicKeyFile) {
+        std::cerr << "Error opening public key file." << std::endl;
+    }
+
+    RSA* rsaPublicKey = d2i_RSAPublicKey_fp(publicKeyFile, NULL);
+
+    fclose(publicKeyFile);
+    if (!rsaPublicKey) {
+        std::cerr << "Error loading public key." << std::endl;
+    }
+
+    return rsaPublicKey;
+}
+
+RSA* getPriKey() {
+    const char* privateKeyPath = "./private_key.der";
+
+    // 공개 키를 DER 형식으로 읽어옴
+    FILE* privateKeyFile = fopen(privateKeyPath, "rb");
+    if (!privateKeyFile) {
+        std::cerr << "Error opening private key file." << std::endl;
+    }
+
+    RSA* rsaPrivateKey = d2i_RSAPrivateKey_fp(privateKeyFile, NULL);
+    fclose(privateKeyFile);
+    if (!rsaPrivateKey) {
+        std::cerr << "Error loading private key." << std::endl;
+    }
+
+    return rsaPrivateKey;
+}
+
+
 /**
 #include "RSA.hpp"
 
@@ -66,6 +107,8 @@ std::vector<unsigned char> rsaDecrypt(const unsigned char* cipherText, size_t ci
     }
 
     // RSA 복호화
+
+
     std::vector<unsigned char> decryptedData(RSA_size(rsaPrivateKey), 0);
     int result = RSA_private_decrypt(cipherTextLen, cipherText, decryptedData.data(), rsaPrivateKey, RSA_PKCS1_PADDING);
     if (result == -1) {

