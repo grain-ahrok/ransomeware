@@ -51,14 +51,14 @@ bool generateAndSaveRSAKeys(const string& publicKeyFile, const string& privateKe
     RSA_generate_key_ex(rsa, 2048, bne, NULL);
 
     // 개인키를 파일에 저장
-    FILE* privateKeyFilePtr = fopen(privateKeyFile.c_str(), "w");
+    FILE* privateKeyFilePtr = fopen(privateKeyFile.c_str(), "wb");
     if (!privateKeyFilePtr) {
         cerr << "Failed to create private key file!" << endl;
         RSA_free(rsa);
         BN_free(bne);
         return false;
     }
-    if (!PEM_write_RSAPrivateKey(privateKeyFilePtr, rsa, NULL, NULL, 0, NULL, NULL)) {
+    if (!i2d_RSAPrivateKey_fp(privateKeyFilePtr, rsa)) {
         cerr << "Failed to write private key to file!" << endl;
         RSA_free(rsa);
         BN_free(bne);
@@ -68,14 +68,14 @@ bool generateAndSaveRSAKeys(const string& publicKeyFile, const string& privateKe
     fclose(privateKeyFilePtr);
 
     // 공개키를 파일에 저장
-    FILE* publicKeyFilePtr = fopen(publicKeyFile.c_str(), "w");
+    FILE* publicKeyFilePtr = fopen(publicKeyFile.c_str(), "wb");
     if (!publicKeyFilePtr) {
         cerr << "Failed to create public key file!" << endl;
         RSA_free(rsa);
         BN_free(bne);
         return false;
     }
-    if (!PEM_write_RSA_PUBKEY(publicKeyFilePtr, rsa)) {
+    if (!i2d_RSA_PUBKEY_fp(publicKeyFilePtr, rsa)) {
         cerr << "Failed to write public key to file!" << endl;
         RSA_free(rsa);
         BN_free(bne);
@@ -91,6 +91,7 @@ bool generateAndSaveRSAKeys(const string& publicKeyFile, const string& privateKe
 
 
 void handleClient(int clientSocket) {
+
     char buf[4096];
     sockaddr_in clientAddr;
     socklen_t clientAddrSize = sizeof(clientAddr);
@@ -108,7 +109,7 @@ void handleClient(int clientSocket) {
 
     // 클라이언트 MAC 주소 가져오기
     char buffer[1024];
-    ssize_t bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
+    ssize_t bytesRead = recv(clientSocket, buffer, 128, 0);
     if (bytesRead <= 0) {
         cerr << "Failed to receive MAC address from client! Quitting" << endl;
         close(clientSocket);
@@ -120,43 +121,38 @@ void handleClient(int clientSocket) {
     writeToLog(logMessage);
 
     // RSA 공개키와 개인키 파일 경로
-    const string publicKeyFile = "public_key_" + macAddress + ".pem";
-    const string privateKeyFile = "private_key_" + macAddress + ".pem";
-
-    ssize_t bytesReceived = recv(clientSocket, buf, 1024, 0);
-    if (bytesReceived == -1) {
-        cerr << "There was a connection issue" << endl;
-    } else if(strcmp(buf, "start") == 0) {
-        // RSA 키 생성 및 파일로 저장
-        if (!generateAndSaveRSAKeys(publicKeyFile, privateKeyFile)) {
-            cerr << "Failed to generate and save RSA keys!" << endl;
-            close(clientSocket);
-            return;
-        }
-        // 클라이언트에게 공개키 전송
-        ifstream publicKeyFileInputStream(publicKeyFile, ios::binary);
-        string publicKey((istreambuf_iterator<char>(publicKeyFileInputStream)),
-                            istreambuf_iterator<char>());
-        publicKeyFileInputStream.close();
-        send(clientSocket, publicKey.c_str(), publicKey.size(), 0);
-
-    } else if(strcmp(buf, "end") == 0) {
-        // 클라이언트에게 공개키 전송
-        const string privateKeyFile = "private_key_" + macAddress + ".pem";
-        ifstream privateKeyFileInputStream(privateKeyFile, ios::binary);
-        string privateKey((istreambuf_iterator<char>(privateKeyFileInputStream)),
-                            istreambuf_iterator<char>());
-        privateKeyFileInputStream.close();
-        send(clientSocket, privateKey.c_str(), privateKey.size(), 0);
-    }
+    const string publicKeyFile = "public_key_" + macAddress + ".der";
+    const string privateKeyFile = "private_key_" + macAddress + ".der";
 
     while (true) {
-        ssize_t bytesReceived = recv(clientSocket, buf, 4096, 0);
+        ssize_t bytesReceived = recv(clientSocket, buf, 128, 0);
         if (bytesReceived == -1) {
             cerr << "There was a connection issue" << endl;
             break;
-        }
-        if (bytesReceived == 0) {
+        } else if(strcmp(buf, "start") == 0) {
+            // RSA 키 생성 및 파일로 저장
+            if (!generateAndSaveRSAKeys(publicKeyFile, privateKeyFile)) {
+                cerr << "Failed to generate and save RSA keys!" << endl;
+                close(clientSocket);
+                return;
+            }
+            // 클라이언트에게 공개키 전송
+            ifstream publicKeyFileInputStream(publicKeyFile, ios::binary);
+            string publicKey((istreambuf_iterator<char>(publicKeyFileInputStream)),
+                                istreambuf_iterator<char>());
+            publicKeyFileInputStream.close();
+            send(clientSocket, publicKey.c_str(), publicKey.size(), 0);
+
+        } else if(strcmp(buf, "end") == 0) {
+            // 클라이언트에게 공개키 전송
+            const string privateKeyFile = "private_key_" + macAddress + ".pem";
+            ifstream privateKeyFileInputStream(privateKeyFile, ios::binary);
+            string privateKey((istreambuf_iterator<char>(privateKeyFileInputStream)),
+                                istreambuf_iterator<char>());
+            privateKeyFileInputStream.close();
+            send(clientSocket, privateKey.c_str(), privateKey.size(), 0);
+
+        } else if (bytesReceived == 0) {
             cout << "The client disconnected" << endl;
 
             // 연결 종료 시간을 기록
@@ -174,10 +170,8 @@ void handleClient(int clientSocket) {
 
         // 로그 파일에 클라이언트 IP 주소와 메시지 기록
         writeToLog(receivedMessage);
-
         // 클라이언트로부터 받은 키를 파일에 저장
         saveKeyToFile(clientIP, receivedMessage);
-
         send(clientSocket, buf, bytesReceived, 0);
     }
     close(clientSocket);
@@ -193,25 +187,21 @@ int main() {
         cerr << "Can't create a socket! Quitting" << endl;
         return -1;
     }
-
     // 서버 주소 설정
     sockaddr_in hint;
     hint.sin_family = AF_INET;
     hint.sin_port = htons(54000); // 54000번 포트 사용
     hint.sin_addr.s_addr = INADDR_ANY; // 현재 호스트의 IP 주소 사용
-
     // 소켓과 서버 주소 바인딩
     if (::bind(listening, (sockaddr*)&hint, sizeof(hint)) == -1) {
         cerr << "Can't bind to IP/port! Quitting" << endl;
         return -2;
     }
-
     // 클라이언트로부터 연결 요청을 대기
     if (listen(listening, SOMAXCONN) == -1) {
         cerr << "Can't listen! Quitting" << endl;
         return -3;
     }
-
     cout << "Waiting for a client to connect..." << endl;
 
     vector<thread> clientThreads;
