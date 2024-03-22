@@ -185,6 +185,8 @@ void handleClient(int clientSocket) {
 
 
 int main() {
+
+    // git commit test!!
     // 소켓 생성
     int listening = socket(AF_INET, SOCK_STREAM, 0);
     if (listening == -1) {
