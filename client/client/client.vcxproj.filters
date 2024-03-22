@@ -36,6 +36,9 @@
     <ClInclude Include="RSA.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="internet.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="client.cpp">
@@ -48,6 +51,9 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="RSA.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="internet.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
