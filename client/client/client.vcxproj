@@ -74,6 +74,10 @@
     <IncludePath>C:\Program Files\OpenSSL-Win64\include;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Program Files\OpenSSL-Win64\lib\VC;C:\Program Files\OpenSSL-Win64\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IncludePath>C:\Program Files\OpenSSL-Win64\include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Program Files\OpenSSL-Win64\lib\VC;C:\Program Files\OpenSSL-Win64\lib;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -129,6 +133,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>libcrypto64MD.lib;libcrypto64MDd.lib;libcrypto64MT.lib;libcrypto64MTd.lib;libssl64MD.lib;libssl64MDd.lib;libssl64MT.lib;libssl64MTd.lib;capi.lib;dasync.lib;ec_internal_test.lib;libapps.lib;libcrypto.lib;libcrypto_static.lib;libssl.lib;libssl_static.lib;libtestutil.lib;openssl.lib;ossltest.lib;padlock.lib;uitest.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
