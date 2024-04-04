@@ -6,8 +6,15 @@
 ### WinRAR 취약점 이용
 취약점 내용 : https://ah-rok.tistory.com/56
 
-### 악성프로그램 실행
+https://github.com/grain-ahrok/ransomeware/assets/81209784/4206025b-ab6a-4c3c-9bdc-c2ce2b6b7ad9
 
+<br/>
+<br/>
+
+
+
+### 악성프로그램 실행
+https://github.com/grain-ahrok/ransomeware/assets/81209784/248a94de-f872-42ac-8a5c-7e1964ebc6ce
 
 
 
