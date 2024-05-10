@@ -318,11 +318,8 @@ LRESULT CALLBACK WinProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
                 // 서버로부터 공개키 수신
                 unsigned char privateKeyBuf[1192];
-                // TODO : 받아온 사이즈 중에서 CC 인 부분은 자를 수 있도록
                 int privateKeyLen = recv(clientSocket, reinterpret_cast<char*>(privateKeyBuf), 1192, 0);
-                for (int i = 0; i < 1192; i++) {
-                    printf("%02x", privateKeyBuf[i]);
-                }
+
                 if (privateKeyLen <= 0) {
                     std::cerr << "Failed to receive public key from server! Quitting" << std::endl;
                     closesocket(clientSocket);
