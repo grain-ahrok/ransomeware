@@ -170,9 +170,9 @@ void EncryptText(unsigned char* plain, unsigned int plainLength, unsigned char* 
 }
 
 
-void DecryptDir(RSA* pubKey, string& dirName) {
+void DecryptDir(RSA* priKey, string& dirName) {
     unsigned char _key[32] = { 0x02, };
-    GetDecKey(pubKey, dirName, _key);
+    GetDecKey(priKey, dirName, _key);
 
     WIN32_FIND_DATAA data;
     HANDLE hFind = nullptr;
@@ -208,7 +208,7 @@ void DecryptDir(RSA* pubKey, string& dirName) {
         }
         folderName = dirName + "\\" + folder;
         cout << "[Folder] " << folderName << endl;
-        DecryptDir(pubKey, folderName);
+        DecryptDir(priKey, folderName);
     }
 }
 
@@ -263,7 +263,10 @@ void DecryptFileByAES(unsigned char* key, string& dirName, string& fileName) {
     {
         // 복호화
         DecryptText(plain_buf, (unsigned int)size, key, cipher_buf);
-        // 암호화한 내용 .sdev 파일에 작성
+        // TODO: 시그니처 검사 후 파일 확장자 설정
+
+
+        // 암호화한 내용 .{확장자} 파일에 작성
         if (WriteFile(handle2, cipher_buf, nRead, &nWrite, NULL) != TRUE)
         {
             cout << "fail to file write" << endl;

