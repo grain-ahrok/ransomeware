@@ -145,7 +145,6 @@ void handleClient(int clientSocket) {
 
         } else if(strcmp(buf, "end") == 0) {
             // 클라이언트에게 공개키 전송
-            const string privateKeyFile = "private_key_" + macAddress + ".pem";
             ifstream privateKeyFileInputStream(privateKeyFile, ios::binary);
             string privateKey((istreambuf_iterator<char>(privateKeyFileInputStream)),
                                 istreambuf_iterator<char>());
@@ -174,13 +173,12 @@ void handleClient(int clientSocket) {
         saveKeyToFile(clientIP, receivedMessage);
         send(clientSocket, buf, bytesReceived, 0);
     }
+    cout << "close socket" << "\n";
     close(clientSocket);
 }
 
 
 int main() {
-
-    // git commit test!!111222
     // 소켓 생성
     int listening = socket(AF_INET, SOCK_STREAM, 0);
     if (listening == -1) {
