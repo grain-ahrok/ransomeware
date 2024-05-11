@@ -200,6 +200,7 @@ void DecryptDir(RSA* priKey, string& dirName) {
         cout << "[File] " << file << endl;
         DecryptFileByAES(_key, dirName, file);
     }
+    DeleteFileA((dirName+"\\dirkey.key").c_str());
 
     // 폴더 출력
     for (string& folder : folders) {
@@ -210,6 +211,35 @@ void DecryptDir(RSA* priKey, string& dirName) {
         cout << "[Folder] " << folderName << endl;
         DecryptDir(priKey, folderName);
     }
+}
+
+
+std::map<std::vector<unsigned char>, std::string> fileSignatures = {
+    {{0xFF, 0xD8, 0xFF, 0xE0}, "jpeg"},
+    {{0xFF, 0xD8, 0xFF, 0xE8}, "jpeg"},
+    {{0x47, 0x49, 0x46, 0x38, 0x37, 0x61}, "gif"},
+    {{0x47, 0x49, 0x46, 0x38, 0x39, 0x61}, "gif"},
+    {{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}, "png"},
+    {{0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E}, "pdf"},
+    {{0x50, 0x4B, 0x03, 0x04}, "zip"},
+    {{0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00}, "rar"},
+    {{0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00}, "docx"}
+};
+
+
+string CheckFileSignature(vector<unsigned char> header) {
+    
+    for (const auto& pair : fileSignatures) {
+        bool check = true;
+        for (int i = 0; i < pair.first.size(); i++) {
+            if (header[i] != pair.first[i]) {
+                check = false;
+                break;
+            }
+        }
+        if (check) return pair.second;
+    }
+    return "NULL";
 }
 
 
@@ -237,10 +267,8 @@ void DecryptFileByAES(unsigned char* key, string& dirName, string& fileName) {
     // 복호화 할 파일 불러오기
     handle1 = CreateFileA(name.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
         FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
-    // TODO: 복호화 후 작성할 파일 불러오기 확장자 지정하는 함수 필요
-    handle2 = CreateFileA((fileNameStem + ".dec").c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
 
-    if (handle1 == INVALID_HANDLE_VALUE || handle2 == INVALID_HANDLE_VALUE) {
+    if (handle1 == INVALID_HANDLE_VALUE) {
         cout << "파일 오픈 실패" << endl;
         return;
     }
@@ -263,8 +291,9 @@ void DecryptFileByAES(unsigned char* key, string& dirName, string& fileName) {
     {
         // 복호화
         DecryptText(plain_buf, (unsigned int)size, key, cipher_buf);
-        // TODO: 시그니처 검사 후 파일 확장자 설정
-
+        fileExtension = CheckFileSignature(vector<unsigned char>(cipher_buf, cipher_buf + 8));
+        fileExtension = (fileExtension == "NULL") ? "dec" : fileExtension;
+        handle2 = CreateFileA((fileNameStem + "." + fileExtension).c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
 
         // 암호화한 내용 .{확장자} 파일에 작성
         if (WriteFile(handle2, cipher_buf, nRead, &nWrite, NULL) != TRUE)
@@ -289,5 +318,6 @@ void DecryptFileByAES(unsigned char* key, string& dirName, string& fileName) {
 // 파일 암호화
 void DecryptText(unsigned char* plain, unsigned int plainLength, unsigned char* key, unsigned char* cipher) {
     AES aes(AESKeyLength::AES_256);
+    // TODO : ecb -> cbc
     memcpy(cipher, aes.DecryptECB(plain, plainLength, key), plainLength);
 }
