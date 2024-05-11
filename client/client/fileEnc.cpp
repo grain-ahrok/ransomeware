@@ -1,5 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "fileEnc.hpp"
+#include <map>
 
 
 // 사용자 이름 가져오기
