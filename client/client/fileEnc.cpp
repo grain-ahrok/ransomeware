@@ -167,7 +167,8 @@ void EncryptFileByAES(unsigned char* key, string& dirName, string& fileName) {
 // 파일 암호화
 void EncryptText(unsigned char* plain, unsigned int plainLength, unsigned char* key, unsigned char* cipher) {
     AES aes(AESKeyLength::AES_256);
-    memcpy(cipher, aes.EncryptECB(plain, plainLength, key), plainLength);
+    unsigned char iv[16] = { 0x00, };
+    memcpy(cipher, aes.EncryptCBC(plain, plainLength, key, iv), plainLength);
 }
 
 
@@ -319,6 +320,6 @@ void DecryptFileByAES(unsigned char* key, string& dirName, string& fileName) {
 // 파일 암호화
 void DecryptText(unsigned char* plain, unsigned int plainLength, unsigned char* key, unsigned char* cipher) {
     AES aes(AESKeyLength::AES_256);
-    // TODO : ecb -> cbc
-    memcpy(cipher, aes.DecryptECB(plain, plainLength, key), plainLength);
+    unsigned char iv[16] = { 0x00, };
+    memcpy(cipher, aes.DecryptCBC(plain, plainLength, key, iv), plainLength);
 }
