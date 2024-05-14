@@ -35,3 +35,57 @@ RSA* getPriKey() {
     }
     return rsaPrivateKey;
 }
+
+
+void GetPubKeyFromServer(SOCKET clientSocket) {
+    // 서버로부터 공개키 수신
+    unsigned char publicKeyBuf[294];
+    int publicKeyLen = recv(clientSocket, reinterpret_cast<char*>(publicKeyBuf), 294, 0);
+    if (publicKeyLen <= 0) {
+        cerr << "Failed to receive public key from server! Quitting" << endl;
+        closesocket(clientSocket);
+        WSACleanup();
+        return;
+    }
+
+    HANDLE hFile = CreateFile(L"public_key.der", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        cerr << "Failed to create file." << endl;
+        return;
+    }
+    DWORD bytesWritten;
+    if (!WriteFile(hFile, publicKeyBuf, sizeof(publicKeyBuf), &bytesWritten, NULL)) {
+        cerr << "Failed to write to file." << endl;
+        CloseHandle(hFile);
+        return;
+    }
+    CloseHandle(hFile);
+}
+
+
+void GetPriKeyFromServer(SOCKET clientSocket) {
+    // 서버로부터 개인키 수신
+    unsigned char privateKeyBuf[1192];
+    int privateKeyLen = recv(clientSocket, reinterpret_cast<char*>(privateKeyBuf), 1192, 0);
+
+    if (privateKeyLen <= 0) {
+        std::cerr << "Failed to receive public key from server! Quitting" << std::endl;
+        closesocket(clientSocket);
+        WSACleanup();
+        return;
+    }
+
+    // 받아온 공개키 저장
+    HANDLE hFile = CreateFile(L"private_key.der", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        cerr << "Failed to create file." << endl;
+        return;
+    }
+    DWORD bytesWritten;
+    if (!WriteFile(hFile, privateKeyBuf, sizeof(privateKeyBuf), &bytesWritten, NULL)) {
+        cerr << "Failed to write to file." << endl;
+        CloseHandle(hFile);
+        return;
+    }
+    CloseHandle(hFile);
+}

