@@ -1,5 +1,8 @@
 #include "internet.hpp"
 
+const string SERVER_IP = "3.36.117.40";
+const int SERVER_PORT = 54000;
+
 
 // Wi - Fi 인터페이스의 Mac 주소 가져오기
 string getMacAddress() {
@@ -33,10 +36,41 @@ string getMacAddress() {
 				}
 			}
 		}
-
 		// 할당된 메모리 해제
 		free(pAdapterInfo);
 	}
-
 	return macAddress;
+}
+
+
+
+SOCKET StartSocket() {
+	// 소켓 초기화
+	WSADATA wsaData;
+	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+		std::cerr << "WSAStartup failed!" << std::endl;
+		return -1;
+	}
+	// 소켓 생성
+	SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (clientSocket == INVALID_SOCKET) {
+		std::cerr << "Can't create a socket! Quitting" << std::endl;
+		WSACleanup();
+		return -2;
+	}
+	// 서버 연결
+	sockaddr_in hint;
+	hint.sin_family = AF_INET;
+	hint.sin_port = htons(SERVER_PORT);
+	inet_pton(AF_INET, SERVER_IP.c_str(), &hint.sin_addr);
+
+	int connectResult = connect(clientSocket, (sockaddr*)&hint, sizeof(hint));
+	if (connectResult == SOCKET_ERROR) {
+		std::cerr << "Can't connect to server! Quitting" << std::endl;
+		closesocket(clientSocket);
+		WSACleanup();
+		return -3;
+	}
+
+	return clientSocket;
 }

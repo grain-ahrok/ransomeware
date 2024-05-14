@@ -142,6 +142,7 @@
     <ClInclude Include="fileEnc.hpp" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="internet.hpp" />
+    <ClInclude Include="registry.hpp" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="RSA.hpp" />
     <ClInclude Include="targetver.h" />
@@ -151,6 +152,7 @@
     <ClCompile Include="AES.cpp" />
     <ClCompile Include="fileEnc.cpp" />
     <ClCompile Include="internet.cpp" />
+    <ClCompile Include="registry.cpp" />
     <ClCompile Include="RSA.cpp" />
   </ItemGroup>
   <ItemGroup>

