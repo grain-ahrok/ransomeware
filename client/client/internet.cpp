@@ -1,6 +1,6 @@
 #include "internet.hpp"
 
-const string SERVER_IP = "3.36.117.40";
+const string SERVER_IP = "43.203.179.45";
 const int SERVER_PORT = 54000;
 
 

